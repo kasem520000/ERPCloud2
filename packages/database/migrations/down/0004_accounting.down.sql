@@ -1,0 +1,10 @@
+DROP TRIGGER IF EXISTS journal_entries_posted_immutable ON journal_entries;
+DROP FUNCTION IF EXISTS prevent_posted_journal_mutation();
+DROP TABLE IF EXISTS opening_balances;
+DROP TABLE IF EXISTS journal_entry_lines;
+DROP TABLE IF EXISTS journal_entries;
+DROP TABLE IF EXISTS period_module_locks;
+DROP TABLE IF EXISTS fiscal_periods;
+DROP TABLE IF EXISTS fiscal_years;
+DROP TABLE IF EXISTS cost_centers;
+DROP TABLE IF EXISTS accounts;

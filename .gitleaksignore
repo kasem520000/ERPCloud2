@@ -1,0 +1,4 @@
+# Known non-secret development placeholders referenced by infrastructure/env/.env.example.
+# These values exist only so a fresh clone can boot the local docker-compose stack.
+infrastructure/env/.env.example:app-dev-password
+apps/api/.env.example:change-me-in-every-environment

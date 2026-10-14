@@ -1,0 +1,126 @@
+/**
+ * Baseline role seed (DATABASE_DESIGN §17: "3 roles (owner/accountant/cashier)").
+ * Seed lists live in `packages/config/seeds/*.ts` per DATABASE_DESIGN §17.
+ *
+ * Permission codes must exist in the registry exported by `@erp/contracts`
+ * (`permissionRegistry`); `apps/api/src/modules/platform/seeds/permission-registry.ts`
+ * asserts this at seed time.
+ */
+
+export type BaselineRoleSeed = {
+  readonly code: string;
+  readonly name: string;
+  readonly description: string;
+  readonly isSystem: boolean;
+  readonly permissions: readonly string[];
+};
+
+export const baselineRoles: readonly BaselineRoleSeed[] = [
+  {
+    code: 'owner',
+    name: 'Owner',
+    description: 'Full control of the tenant, including configuration and access management.',
+    isSystem: true,
+    permissions: ['*'],
+  },
+  {
+    code: 'accountant',
+    name: 'Accountant',
+    description: 'Accounting, parties, inventory and document review without tenant administration.',
+    isSystem: true,
+    permissions: [
+      'platform.tenant.view',
+      'organization.branch.view',
+      'organization.warehouse.view',
+      'organization.cashlocation.view',
+      'organization.currency.view',
+      'catalog.item.view',
+      'catalog.category.view',
+      'catalog.unit.view',
+      'catalog.taxgroup.view',
+      'accounting.account.view',
+      'accounting.account.manage',
+      'accounting.costcenter.manage',
+      'accounting.journal.create',
+      'accounting.journal.post',
+      'accounting.journal.reverse',
+      'accounting.period.view',
+      'accounting.period.close',
+      'accounting.period.reopen',
+      'accounting.opening.manage',
+      'accounting.reports.view',
+      'parties.view',
+      'parties.manage',
+      'parties.allocate',
+      'inventory.view',
+      'manufacturing.view',
+      'inventory.adjust',
+      'inventory.bins.manage',
+      'inventory.adjust.approve',
+      'inventory.transfer',
+      'inventory.transfer.receive',
+      'inventory.request.manage',
+      'inventory.request.approve',
+      'inventory.delivery.manage',
+      'inventory.negative.override',
+      'sales.view',
+      'sales.invoice.create',
+      'esign.manage',
+      'sales.invoice.post',
+      'sales.invoice.void',
+      'sales.adjustment.create',
+      'purchase.view',
+      'purchase.invoice.create',
+      'supplier_portal.access',
+      'purchase.invoice.post',
+      'purchase.invoice.void',
+      'purchase.adjustment.create',
+      'approval.approve',
+      'treasury.view',
+      'treasury.voucher.create',
+      'treasury.voucher.post',
+      'treasury.voucher.void',
+      'treasury.cheque.clear',
+      'treasury.shift.close',
+      'einvoice.view',
+      'einvoice.submit',
+      'reporting.view',
+      'dashboards.view',
+      'dashboards.manage',
+      'payroll.wps.export',
+      'payments.links.manage',
+      'ai.assistant.use',
+      'employee.self.view',
+      'employee.self.manage',
+    ],
+  },
+  {
+    code: 'cashier',
+    name: 'Cashier',
+    description: 'Point-of-sale and treasury operations; read-only catalog and party lookup.',
+    isSystem: true,
+    permissions: [
+      'platform.tenant.view',
+      'organization.branch.view',
+      'organization.cashlocation.view',
+      'catalog.item.view',
+      'catalog.taxgroup.view',
+      'parties.view',
+      'parties.manage',
+      'inventory.view',
+      'manufacturing.view',
+      'sales.view',
+      'sales.invoice.create',
+      'esign.manage',
+      'supplier_portal.access',
+      'sales.invoice.pay',
+      'treasury.view',
+      'treasury.voucher.create',
+      'treasury.shift.close',
+      'payments.links.manage',
+      'ai.assistant.use',
+      'employee.self.view',
+      'employee.self.manage',
+    ],
+  },
+] as const;

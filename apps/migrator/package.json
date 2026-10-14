@@ -1,0 +1,16 @@
+{
+  "name": "@erp/migrator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  },
+  "scripts": {
+    "dev": "pnpm run build && node --enable-source-maps dist/cli.js --help",
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src --config ../../eslint.config.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

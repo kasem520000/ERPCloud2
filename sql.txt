@@ -1,0 +1,4782 @@
+USE [Data16]
+GO
+/****** Object:  Table [dbo].[Inv]    Script Date: 15/08/26 01:29:23 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Inv](
+	[InvGlobalID] [varchar](20) NOT NULL,
+	[proc_id] [int] IDENTITY(1,1) NOT NULL,
+	[proc_type] [int] NULL,
+	[id] [int] NULL,
+	[date] [datetime] NULL,
+	[inv_type] [int] NULL,
+	[OrderType] [int] NULL,
+	[safe] [int] NULL,
+	[stock] [int] NULL,
+	[cust_id] [int] NULL,
+	[sales_emp] [int] NULL,
+	[InvTotal] [float] NULL,
+	[tot_purch] [float] NULL,
+	[AdditionsTot] [float] NULL,
+	[Insurance] [float] NULL,
+	[tot_net] [float] NULL,
+	[EntryID] [int] NULL,
+	[purch_rest_id] [int] NULL,
+	[Reff_No] [varchar](20) NULL,
+	[Reff_date] [datetime] NULL,
+	[branch] [int] NULL,
+	[IS_Buy] [bit] NULL,
+	[minus] [float] NULL,
+	[paid] [float] NULL,
+	[salesman] [int] NULL,
+	[tax] [float] NULL,
+	[pay_type] [int] NULL,
+	[bank] [int] NULL,
+	[cash] [float] NULL,
+	[visa] [float] NULL,
+	[notes] [nvarchar](150) NULL,
+	[IS_Deleted] [bit] NULL,
+	[Sync] [bit] NULL,
+	[InvProfit] [float] NULL,
+	[PriceIncVAT] [bit] NULL,
+	[ExtraVAT] [float] NULL,
+	[PaymentStatus] [int] NULL,
+	[AdditionalCost] [float] NULL,
+	[InvoiceStatus] [int] NULL,
+	[IssueDate] [datetime] NULL,
+	[InvCombinedId] [nvarchar](20) NULL,
+	[ItemsDiscount] [float] NULL,
+	[InvCost] [float] NULL,
+	[FreeVATSales] [float] NULL,
+	[InvSum] [float] NULL,
+	[VATPercent] [float] NULL,
+	[CurrencyCode] [nvarchar](10) NULL,
+	[TableNo] [nvarchar](20) NULL,
+	[CloudID] [nvarchar](20) NULL,
+	[CashCustomerName] [nvarchar](2000) NULL,
+	[CashCustomerMobile] [nvarchar](2000) NULL,
+	[QRCode] [nvarchar](max) NULL,
+	[InvoiceHash] [nvarchar](max) NULL,
+	[UUID] [nvarchar](200) NULL,
+	[ZatcaSent] [bit] NULL,
+	[TotalWithholdingTax] [float] NULL,
+	[Balance_previews] [decimal](18, 2) NULL,
+	[PeriodID] [int] NULL,
+ CONSTRAINT [PK_Inv] PRIMARY KEY CLUSTERED 
+(
+	[InvGlobalID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_InvNo] UNIQUE NONCLUSTERED 
+(
+	[branch] ASC,
+	[inv_type] ASC,
+	[proc_type] ASC,
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  UserDefinedFunction [dbo].[SalesByDay]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE function [dbo].[SalesByDay](@branch int,@InvType int,@StartDate  dateTime,@EndDate  dateTime )  
+returns table  
+as
+return(select InvDate ,sum(SaleTotal - ReturnSaleTotal) as Total,sum(SaleTax - ReturnSaleTax) as TotalTax,  sum(InvTotal-ReturnTotal) as SaleNet,ROW_NUMBER() OVER (ORDER BY InvDate DESC) AS RowNum from
+(select  CAST(date AS DATE) as InvDate, sum(tot_net) as InvTotal, sum(inv.InvTotal) as SaleTotal, sum(tax) as SaleTax ,
+0 as InvReturnCount,0 as ReturnTotal,0 as  ReturnSaleTotal,0 as ReturnSaleTax
+from inv where (@branch is null or  branch =@branch ) and (inv_type=@InvType) and proc_type=1 and IS_Deleted=0 and pay_type <>5 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)  group by date
+union all
+select  CAST(date AS DATE) as InvDate ,0 as InvCount,0 as InvTotal,0 as SaleTotal,0 as SaleTax, 
+sum(tot_net) as ReturnTotal , sum(inv.InvTotal) as ReturnSaleTotal,sum(tax) as ReturnSaleTax
+from inv where ( @branch is null or  branch =@branch  ) and (inv_type=@InvType) and proc_type=2 and IS_Deleted=0 and pay_type <>5 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)  group by date  )  as tb group by tb.InvDate )
+GO
+/****** Object:  Table [dbo].[Safes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Safes](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[branch] [int] NULL,
+	[status] [int] NULL,
+	[IS_Default] [bit] NULL,
+	[notes] [nvarchar](500) NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_Safes] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Items]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Items](
+	[id] [int] NOT NULL,
+	[name] [nvarchar](500) NULL,
+	[nameEN] [nvarchar](500) NULL,
+	[code] [nvarchar](50) NULL,
+	[barcode] [nvarchar](50) NULL,
+	[Grpcode] [nvarchar](50) NULL,
+	[group_id] [int] NULL,
+	[unit] [int] NULL,
+	[ShowInPOS] [bit] NULL,
+	[Wscale] [int] NULL,
+	[purch_price] [float] NULL,
+	[sale_price] [float] NULL,
+	[limit] [int] NULL,
+	[tax] [float] NULL,
+	[discount] [float] NULL,
+	[tax_group] [int] NULL,
+	[image] [image] NULL,
+	[store] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[ItemType] [int] NULL,
+	[ItemProperty] [int] NULL,
+	[FillValue] [float] NULL,
+	[MaxQtyLimit] [float] NULL,
+	[WithholdingTax] [float] NULL,
+	[EgyItemCode] [nvarchar](50) NULL,
+	[EgyCodeType] [nvarchar](50) NULL,
+	[MaxDicountParcent] [float] NULL,
+	[is_extra_tax_applied] [bit] NULL,
+	[MaxDiscountAmount] [float] NULL,
+	[showInAndroid] [bit] NULL,
+	[Item_sort] [int] NULL,
+	[CreatedDate] [datetime] NULL,
+	[CreatedBy] [nvarchar](200) NULL,
+	[updatedDate] [datetime] NULL,
+	[updatedBy] [nvarchar](200) NULL,
+ CONSTRAINT [PK_Items] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Inv_Sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Inv_Sub](
+	[InvGlobalID] [varchar](20) NULL,
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[proc_id] [int] NULL,
+	[proc_type] [int] NULL,
+	[store] [int] NULL,
+	[ItemId] [int] NULL,
+	[unit] [int] NULL,
+	[UnitEquality] [float] NULL,
+	[val] [float] NULL,
+	[val1] [float] NULL,
+	[exchange_price] [float] NULL,
+	[expire_date] [datetime] NULL,
+	[taxperc] [float] NULL,
+	[taxval] [float] NULL,
+	[discount] [float] NULL,
+	[notes] [nvarchar](150) NULL,
+	[Description] [nvarchar](max) NULL,
+	[ProductId] [int] NULL,
+	[AvrgCost] [float] NULL,
+	[CurrentQnty] [float] NULL,
+	[ItemAddedCost] [float] NULL,
+	[ItemPriceWithoutVAT] [float] NULL,
+	[WithholdingTax] [float] NULL,
+	[WithholdingTaxPerc] [float] NULL,
+	[ItemCostCenter] [nvarchar](50) NULL,
+	[ItemAdditionalTax] [float] NULL,
+	[ItemAdditionalTaxPerc] [float] NULL,
+ CONSTRAINT [PK_Inv_Sub] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  UserDefinedFunction [dbo].[ItemsExpirationStock]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE FUNCTION [dbo].[ItemsExpirationStock]()
+RETURNS TABLE
+AS
+RETURN(select ItemId,SUM(stockIn-stockOut) as ItemStock,ItemExpire,items.name as ItemName,items.code as ItemCode,Safes.name as StoreName,tb.store as StoreID,DATEDIFF(YEAR, GETDATE(), ItemExpire) as RemaindeYear , DATEDIFF(MONTH, GETDATE(), ItemExpire) as RemaindeMonths,DATEDIFF(DAY, GETDATE(), ItemExpire) as RemaindeDays,items.group_id as GroupID,tb.BranchId from(
+   select inv.branch as BranchId,Inv_Sub.store as store, ItemId,sum(val) as stockIn, 0 as stockOut ,CAST(expire_date AS DATE) as ItemExpire from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where  inv_sub.proc_type=1   and inv.IS_Deleted=0 and Items.ItemProperty=8  group by ItemId,inv_sub.store,CAST(expire_date AS DATE) ,inv.branch
+union select inv.branch as BranchId,Inv_Sub.store as store, ItemId,0 as stockIn, sum(val) as stockOut,CAST(expire_date AS DATE) as ItemExpire from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2   and  inv.IS_Deleted=0 and Items.ItemProperty=8 group by ItemId,inv_sub.store,CAST(expire_date AS DATE),inv.branch) as tb 
+left join Items on tb.ItemId=items.id left join Safes on Safes.id=tb.store group by ItemExpire,ItemId,items.name,items.code,Safes.name,items.group_id,tb.BranchId,tb.store)
+GO
+/****** Object:  Table [dbo].[Items_Salla_Sync]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Items_Salla_Sync](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[ItemId] [int] NOT NULL,
+	[SallaProductId] [bigint] NULL,
+	[ExportStatus] [nvarchar](20) NULL,
+	[IsExported] [bit] NULL,
+	[FirstExportDate] [datetime] NULL,
+	[LastExportDate] [datetime] NULL,
+	[LastSyncDate] [datetime] NULL,
+	[ExportedBy] [nvarchar](100) NULL,
+	[ErrorMessage] [nvarchar](max) NULL,
+	[RetryCount] [int] NULL,
+	[LastExportedPrice] [decimal](18, 2) NULL,
+	[LastExportedQuantity] [int] NULL,
+	[LastExportedCost] [decimal](18, 2) NULL,
+	[LastExportedName] [nvarchar](500) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[units]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[units](
+	[name] [nvarchar](100) NULL,
+	[defaultInv] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[UnitId] [int] NULL,
+	[Id] [int] NULL,
+	[UnitCode] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemsCategory]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemsCategory](
+	[Code] [nvarchar](50) NULL,
+	[ParentCode] [nvarchar](50) NULL,
+	[type] [int] NULL,
+	[name] [nvarchar](100) NULL,
+	[nameEN] [nvarchar](100) NULL,
+	[color] [int] NULL,
+	[printer] [nvarchar](max) NULL,
+	[image] [image] NULL,
+	[ShowInPOS] [bit] NULL,
+	[DispalyOrder] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[CategoryId] [int] NULL,
+	[PrintAllItems] [bit] NULL,
+	[BranchId] [int] NULL,
+	[AllBranch] [bit] NULL,
+	[PrintItemsSeparately] [bit] NULL,
+	[Id] [int] NULL,
+	[ShowInPurch] [bit] NOT NULL,
+	[ShowInSale] [bit] NOT NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  View [dbo].[vw_Items_Salla_Status]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE VIEW [dbo].[vw_Items_Salla_Status] AS
+SELECT 
+    i.id AS ItemId,
+    i.Code AS ItemCode,
+    i.name AS ItemName,
+    i.nameEN AS ItemNameEn,
+    i.barcode AS Barcode,
+    i.sale_price AS SalePrice,
+    i.purch_price AS PurchPrice,
+    ic.name AS CategoryName,
+    u.name AS UnitName,
+    ISNULL((SELECT SUM(val1) FROM inv_sub WHERE ItemId = i.id), 0) AS CurrentQuantity,
+    
+    -- بيانات سلة
+    ss.SallaProductId,
+    ss.IsExported,
+    ss.ExportStatus,
+    ss.FirstExportDate,
+    ss.LastExportDate,
+    ss.LastSyncDate,
+    ss.ErrorMessage,
+    ss.RetryCount,
+    -- مقارنة البيانات
+    CASE 
+        WHEN ss.LastExportedPrice != i.sale_price THEN 1
+        WHEN ss.LastExportedCost != i.purch_price THEN 1
+        WHEN ss.LastExportedName != i.name THEN 1
+        ELSE 0
+    END AS HasChanges
+    
+FROM Items i
+LEFT JOIN ItemsCategory ic ON i.group_id = ic.id
+LEFT JOIN units u ON i.unit = u.id
+LEFT JOIN Items_Salla_Sync ss ON i.id = ss.ItemId
+WHERE i.IS_Deleted = 0 ;
+GO
+/****** Object:  Table [dbo].[Branches]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Branches](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[Tel] [nvarchar](50) NULL,
+	[Mobile] [nvarchar](50) NULL,
+	[Fax] [nvarchar](50) NULL,
+	[Email] [nvarchar](50) NULL,
+	[Address] [nvarchar](500) NULL,
+	[notes] [nvarchar](500) NULL,
+	[IS_Deleted] [bit] NULL,
+	[IsDefault] [bit] NULL,
+	[Code] [varchar](10) NULL,
+	[BranchId] [int] NULL,
+	[IsActive] [bit] NULL,
+	[CustomersAcc] [nvarchar](50) NULL,
+	[SupliersAcc] [nvarchar](50) NULL,
+	[TreasuriesAcc] [nvarchar](50) NULL,
+	[BanksAcc] [nvarchar](50) NULL,
+	[AppAcc] [nvarchar](50) NULL,
+	[InventoryAcc] [nvarchar](50) NULL,
+	[CostCenter] [nvarchar](50) NULL,
+	[EmployeeAcc] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Branches] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[InvoiceItemDetail]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[InvoiceItemDetail](
+	[ItemDetailId] [int] NULL,
+	[ItemIncrId] [int] NULL,
+	[InvGlobalID] [varchar](20) NULL,
+	[ItemId] [int] NULL,
+	[InvertoryImpact] [int] NULL,
+	[ItemSerialNo] [varchar](20) NULL,
+	[BatchNo] [nvarchar](50) NULL,
+	[ItemProductionDate] [datetime] NULL,
+	[ItemExpireDate] [datetime] NULL,
+	[ItemHeight] [float] NULL,
+	[ItemWidth] [float] NULL,
+	[ItemColor] [nvarchar](500) NULL,
+	[ItemSize] [nvarchar](500) NULL,
+	[ItemProperty] [int] NULL,
+	[FillValue] [float] NULL,
+	[FillRatio] [float] NULL,
+	[ItemQuantity] [float] NULL,
+	[ItemBarcode] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  UserDefinedFunction [dbo].[funGetInvoiceItemDetails]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE FUNCTION [dbo].[funGetInvoiceItemDetails]
+    (@ItemSerialNo NVARCHAR(50) = NULL,
+	@Branch INT = NULL,
+	@ItemId INT = NULL,
+	@StartDate DATE = NULL,
+    @EndDate DATE = NULL)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        InvoiceItemDetail.ItemId,
+        InvoiceItemDetail.ItemSerialNo,
+		InvoiceItemDetail.InvertoryImpact,
+		InvoiceItemDetail.InvGlobalID,
+        inv.inv_type,
+		inv.proc_type,
+		inv.date as InvDate,
+		inv.id as InvNo,
+        items.name AS ItemName,
+        items.code AS ItemCode,
+		Branches.name as BranchName
+    FROM
+        InvoiceItemDetail
+    LEFT JOIN
+        Inv ON InvoiceItemDetail.InvGlobalID = inv.InvGlobalID
+    LEFT JOIN
+        Items ON InvoiceItemDetail.ItemId = items.id
+	LEFT JOIN
+	   Branches ON inv.branch = Branches.branchID
+    WHERE
+        (@ItemSerialNo IS NULL OR ItemSerialNo = @ItemSerialNo)
+        AND (@Branch IS NULL OR inv.branch = @Branch)
+		AND (@ItemId IS NULL OR InvoiceItemDetail.ItemId=@ItemId)
+        AND inv.IS_Deleted = 0
+		AND inv.proc_type <> 4
+		AND (
+            (@StartDate IS NULL AND @EndDate IS NULL)
+            OR (inv.date BETWEEN  @StartDate AND @EndDate )
+        )
+	
+);
+GO
+/****** Object:  UserDefinedFunction [dbo].[funCalculateSerialNoSummary]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE FUNCTION [dbo].[funCalculateSerialNoSummary](
+    @ItemSerialNo NVARCHAR(50) = NULL,
+    @itemid INT = NULL,
+	@Branch INT = NULL
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        itemid,
+        ItemSerialNo,
+        SUM(stockIn - stockOut) AS result
+    FROM
+    (
+        SELECT
+            itemid,
+            ItemSerialNo,
+            SUM(ItemQuantity) AS stockIn,
+            0 AS stockOut
+        FROM
+            InvoiceItemDetail
+        LEFT JOIN
+            Inv ON InvoiceItemDetail.InvGlobalID = Inv.InvGlobalID
+        WHERE
+			 InvoiceItemDetail.InvertoryImpact=1 
+            AND Inv.IS_Deleted = 0
+            AND (@ItemSerialNo IS NULL OR ItemSerialNo = @ItemSerialNo)
+            AND (@itemid IS NULL OR itemid = @itemid)
+        GROUP BY
+            itemid,
+            ItemSerialNo
+
+        UNION ALL
+
+        SELECT
+            itemid,
+            ItemSerialNo,
+            0 AS stockIn,
+            SUM(ItemQuantity) AS stockOut
+        FROM
+            InvoiceItemDetail
+        LEFT JOIN
+            Inv ON InvoiceItemDetail.InvGlobalID = Inv.InvGlobalID
+        WHERE
+            Inv.IS_Deleted = 0
+			AND InvoiceItemDetail.InvertoryImpact=2
+            AND (@ItemSerialNo IS NULL OR ItemSerialNo = @ItemSerialNo)
+            AND (@itemid IS NULL OR itemid = @itemid)
+			AND (@Branch IS NULL OR inv.branch = @Branch)
+        GROUP BY
+            itemid,
+            ItemSerialNo
+    ) AS tb
+    GROUP BY
+        itemid,
+        ItemSerialNo
+);
+GO
+/****** Object:  UserDefinedFunction [dbo].[TotalItemStockInventory]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE function [dbo].[TotalItemStockInventory](@branch int,@date datetime ,@Inventory int=1)  
+returns table  
+as
+return(
+select  itemId, sum(stockIn - stockOut)as Stock,Category,Inventory   from (select ItemId,sum(val) as stockIn, 0 as stockOut,inv_sub.store as Inventory ,ItemsCategory.id as Category  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id left join ItemsCategory on items.group_id= ItemsCategory.id where inv_sub.proc_type=1 and (@Inventory is null or  inv_sub.store =@Inventory) and (@branch is null or inv.branch=@branch) and Inv.date<=@date  and inv.IS_Deleted=0 group by ItemId,inv_sub.store,ItemsCategory.id 
+union select ItemId,0 as stockIn, sum(val) as stockOut ,inv_sub.store as Inventory ,ItemsCategory.id as Category from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id left join ItemsCategory on items.group_id= ItemsCategory.id where inv_sub.proc_type=2  and inv_sub.store =@Inventory and (@branch is null or inv.branch=@branch) and Inv.date<=@date and  inv.IS_Deleted=0 group by ItemId,inv_sub.store,ItemsCategory.id) as tb group by ItemId,Inventory,Category)
+GO
+/****** Object:  UserDefinedFunction [dbo].[TotalItemStock]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE function [dbo].[TotalItemStock](@branch int,@date datetime )  
+returns table  
+as
+return(
+select  itemId, sum(stockIn - stockOut)as Stock,Category from (select ItemId,sum(val) as stockIn, 0 as stockOut ,ItemsCategory.id as Category  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id left join ItemsCategory on items.group_id= ItemsCategory.id where inv_sub.proc_type=1 and inv_sub.store is not null and (@branch is null or inv.branch=@branch) and Inv.date<=@date  and inv.IS_Deleted=0 group by ItemId,ItemsCategory.id 
+union select ItemId,0 as stockIn, sum(val) as stockOut,ItemsCategory.id as Category from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id left join ItemsCategory on items.group_id= ItemsCategory.id where inv_sub.proc_type=2  and inv_sub.store is not null and (@branch is null or inv.branch=@branch) and Inv.date<=@date and  inv.IS_Deleted=0 group by ItemId,ItemsCategory.id) as tb group by ItemId,Category)
+GO
+/****** Object:  UserDefinedFunction [dbo].[Inventorybalance]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+
+CREATE function [dbo].[Inventorybalance]()  
+returns table  
+as
+return(
+select  itemId, sum(stockIn - stockOut)as Stock,Inventory from (select ItemId,sum(val) as stockIn, 0 as stockOut,inv_sub.store as Inventory   from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id left join ItemsCategory on items.group_id= ItemsCategory.id where inv_sub.proc_type=1 and inv_sub.store is not null and  inv.IS_Deleted=0 group by ItemId,inv_sub.store,ItemsCategory.id 
+union select ItemId,0 as stockIn, sum(val) as stockOut ,inv_sub.store as Inventory  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id left join ItemsCategory on items.group_id= ItemsCategory.id where inv_sub.proc_type=2  and inv_sub.store  is not null and  inv.IS_Deleted=0 group by ItemId,inv_sub.store,ItemsCategory.id) as tb group by ItemId,Inventory)
+GO
+/****** Object:  Table [dbo].[Accounts_Index]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Accounts_Index](
+	[Code] [int] NOT NULL,
+	[AName] [nvarchar](50) NULL,
+	[Nature] [int] NULL,
+	[Type] [int] NULL,
+	[ParentCode] [nvarchar](50) NULL,
+	[Date] [datetime] NULL,
+	[UserName] [nvarchar](50) NULL,
+	[IValue] [float] NULL,
+	[FinalAcc] [int] NULL,
+	[Total_Debts] [float] NULL,
+	[Total_Credits] [float] NULL,
+	[Account_Value] [float] NULL,
+	[Acc_branch] [int] NULL,
+	[CostCenter] [int] NULL,
+	[IsDeleted] [bit] NULL,
+ CONSTRAINT [PK_Accounts_Index] PRIMARY KEY CLUSTERED 
+(
+	[Code] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Entry]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Entry](
+	[GlobalID] [varchar](20) NOT NULL,
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[doc_no] [int] NULL,
+	[type] [int] NULL,
+	[state] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[branch] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[EmpID] [int] NULL,
+	[Sync] [bit] NULL,
+	[IsVAT] [bit] NULL,
+ CONSTRAINT [PK_Entry] PRIMARY KEY CLUSTERED 
+(
+	[GlobalID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Entry_sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Entry_sub](
+	[EntryGlobalID] [varchar](20) NOT NULL,
+	[res_id] [int] NULL,
+	[dept] [float] NULL,
+	[credit] [float] NULL,
+	[acc_no] [int] NULL,
+	[CCcode] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[branch] [int] NULL,
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[salesman] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  UserDefinedFunction [dbo].[AccountTotalBalance]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE function [dbo].[AccountTotalBalance](@branch int=1,@date datetime,@AccType int =1)  
+returns table  
+as
+return(
+select Entry_sub.acc_no as AccountCode,Accounts_Index.AName as AccountName,sum(Entry_sub.dept) as Debet ,sum(Entry_sub.credit) as Credit from Entry,Entry_sub,Accounts_Index where Entry_sub.branch=@branch  and Entry.IS_Deleted=0 and Entry.state=1 and Entry.date<=@date and Entry.GlobalId=Entry_sub.EntryGlobalId and Entry_sub.acc_no=Accounts_Index.Code and Accounts_Index.FinalAcc=@AccType
+ group by Entry_sub.acc_no,Accounts_Index.AName)
+GO
+/****** Object:  UserDefinedFunction [dbo].[AccountsTotalBalance]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE function [dbo].[AccountsTotalBalance](@branch int=1,@date datetime)  
+returns table  
+as
+return(
+ select sum(Debet) as Debet ,sum(Credit) as Credit from (select sum(Entry_sub.dept) as Debet ,sum(Entry_sub.credit) as Credit from Entry,Entry_sub,Accounts_Index where Entry_sub.branch=@branch  and Entry.IS_Deleted=0 and Entry.state=1 and Entry.date<=@date and Entry.GlobalId=Entry_sub.EntryGlobalId and Entry_sub.acc_no=Accounts_Index.Code and Accounts_Index.FinalAcc=1) as tb)
+GO
+/****** Object:  UserDefinedFunction [dbo].[ItemBalanceWithAvrgCost]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+
+CREATE function [dbo].[ItemBalanceWithAvrgCost]()  
+returns table  
+as
+return(
+select  itemId, sum(stockIn - stockOut)as Stock,(sum (ItemAvrgCostIn) - sum(ItemAvrgCostOut)) as InevertoryBalance from (select ItemId,sum(val) as stockIn, 0 as stockOut,sum(IsNull(inv_sub.AvrgCost,inv_sub.exchange_price)*inv_sub.val1) as ItemAvrgCostIn ,0 as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and inv_sub.store is not null and  inv.IS_Deleted=0 group by ItemId
+union select ItemId,0 as stockIn, sum(val) as stockOut ,0 as ItemAvrgCostIn,sum(IsNull(inv_sub.AvrgCost,inv_sub.exchange_price)*inv_sub.val1) as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id where inv_sub.proc_type=2  and inv_sub.store  is not null and  inv.IS_Deleted=0 group by ItemId) as tb group by ItemId)
+GO
+/****** Object:  UserDefinedFunction [dbo].[ItemsStockInventoryPOS]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+/****** Object:  UserDefinedFunction [dbo].[ItemsStockInventoryPOS]    Script Date: 6/22/2021 3:52:57 PM ******/
+CREATE function [dbo].[ItemsStockInventoryPOS](@branch int=1,@Inventory int=1)  
+returns table  
+as
+return(
+select  itemId, sum(stockIn - stockOut)as Stock,Inventory,Category   from (select ItemId,sum(val) as stockIn, 0 as stockOut,inv_sub.store as Inventory ,ItemsCategory.id as Category  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id left join ItemsCategory on items.group_id= ItemsCategory.id where inv_sub.proc_type=1 and Items.ShowInPOS=1 and inv_sub.store =@Inventory and inv.branch=@branch and inv.IS_Deleted=0 group by ItemId,inv_sub.store,ItemsCategory.id 
+union select ItemId,0 as stockIn, sum(val) as stockOut ,inv_sub.store as Inventory ,ItemsCategory.id as Category from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id left join ItemsCategory on items.group_id= ItemsCategory.id where inv_sub.proc_type=2  and inv_sub.store =@Inventory and inv.branch=@branch and inv.IS_Deleted=0 group by ItemId,inv_sub.store,ItemsCategory.id) as tb group by ItemId,Inventory,Category)
+GO
+/****** Object:  UserDefinedFunction [dbo].[ItemStockLimits]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+create function [dbo].[ItemStockLimits](@branch int=1,@Inventory int=1 )  
+returns table  
+as
+return(
+select ItemId, sum(stockIn - stockOut) as ItemStock, IsNull(sum(MaxQntyLimt),0) as MaxQntyLimt ,IsNull(sum(MinQntyLimt),0) as MinQntyLimt from (
+select ItemId,sum(val) as stockIn, 0 as stockOut,0 as MaxQntyLimt,0 as MinQntyLimt   from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1  and inv_sub.store=@Inventory and inv.branch=@branch and inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, sum(val) as stockOut, items.MaxQtyLimit as MaxQntyLimt,Items.limit as MinQntyLimt  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2   and inv_sub.store =@Inventory and inv.branch=@branch and  inv.IS_Deleted=0 group by ItemId,inv_sub.store,MaxQtyLimit ,limit ) as tb  group by ItemId
+)
+GO
+/****** Object:  UserDefinedFunction [dbo].[ItemsStockByBranch]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE function [dbo].[ItemsStockByBranch]()  
+returns table  
+as
+return(
+select  itemId,BranchId, InventoryId, sum(stockIn - stockOut)as Quantity,(sum (ItemAvrgCostIn) - sum(ItemAvrgCostOut)) as AvrgCost from (
+select ItemId,inv.branch as BranchId,inv_sub.store as InventoryId,sum(val) as stockIn, 0 as stockOut,sum(IsNull(inv_sub.AvrgCost,inv_sub.exchange_price)*inv_sub.val1) as ItemAvrgCostIn ,0 as ItemAvrgCostOut    from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and inv_sub.store is not null   and inv.IS_Deleted=0 group by ItemId,inv.Branch,inv_sub.store
+union select ItemId,inv.branch as BranchId,inv_sub.store as InventoryId,0 as stockIn, sum(val) as stockOut,0 as ItemAvrgCostIn,sum(IsNull(inv_sub.AvrgCost,inv_sub.exchange_price)*inv_sub.val1) as ItemAvrgCostOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2  and inv_sub.store is not null and   inv.IS_Deleted=0 group by ItemId,inv.Branch,inv_sub.store) as tb group by ItemId,BranchId, InventoryId )
+GO
+/****** Object:  Table [dbo].[21346]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[21346](
+	[s_Generation] [int] NULL,
+	[d_num] [int] NULL,
+	[KIND] [nvarchar](50) NULL,
+	[onum1] [int] NULL,
+	[s_Lineage] [image] NULL,
+	[datr] [datetime] NULL,
+	[datr_hijri] [datetime] NULL,
+	[datr_greg] [datetime] NULL,
+	[s_GUID] [uniqueidentifier] NULL,
+	[d_hijri] [datetime] NULL,
+	[aria] [nvarchar](50) NULL,
+	[KODE] [nvarchar](50) NULL,
+	[n_st] [nvarchar](6) NULL,
+	[crutch_d] [datetime] NULL,
+	[crutch_n] [nvarchar](50) NULL,
+	[datfi] [datetime] NULL,
+	[ins_g_d] [datetime] NULL,
+	[fat_n1] [nvarchar](50) NULL,
+	[inv_d] [datetime] NULL,
+	[status] [nvarchar](50) NULL,
+	[s_dat] [datetime] NULL,
+	[اسم المشترك] [nvarchar](255) NULL,
+	[a] [int] NULL,
+	[b] [int] NULL,
+	[c] [int] NULL,
+	[d] [int] NULL,
+	[e] [int] NULL,
+	[f] [int] NULL,
+	[g] [int] NULL,
+	[h] [int] NULL,
+	[aa] [int] NULL,
+	[bb] [int] NULL,
+	[cc] [int] NULL,
+	[dd] [int] NULL,
+	[ee] [int] NULL,
+	[ff] [int] NULL,
+	[gg] [int] NULL,
+	[hh] [int] NULL,
+	[price_c] [float] NULL,
+	[s_or] [float] NULL,
+	[con_60] [int] NULL,
+	[con_100] [int] NULL,
+	[con_200] [int] NULL,
+	[con_400] [int] NULL,
+	[box_60] [int] NULL,
+	[box_100] [int] NULL,
+	[box_200] [int] NULL,
+	[box_400] [int] NULL,
+	[break_30] [int] NULL,
+	[break_60] [int] NULL,
+	[break_100] [int] NULL,
+	[tab_400] [int] NULL,
+	[ref_d] [datetime] NULL,
+	[type] [nvarchar](50) NULL,
+	[notes] [nvarchar](250) NULL,
+	[d_t] [datetime] NULL,
+	[d_t_g] [datetime] NULL,
+	[d_H] [datetime] NULL,
+	[dd_h] [datetime] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[AccountingPeriods]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[AccountingPeriods](
+	[PeriodID] [int] IDENTITY(1,1) NOT NULL,
+	[PeriodName] [nvarchar](100) NOT NULL,
+	[StartDate] [date] NOT NULL,
+	[EndDate] [date] NOT NULL,
+	[IsClosed] [bit] NULL,
+	[IsActive] [bit] NULL,
+	[ClosedBy] [nvarchar](100) NULL,
+	[ClosedDate] [datetime] NULL,
+	[Notes] [nvarchar](500) NULL,
+	[CreatedDate] [datetime] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[PeriodID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Acts]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Acts](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Acts] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Additions]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Additions](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](100) NULL,
+	[SalePrice] [float] NULL,
+	[IsDeleted] [bit] NULL,
+ CONSTRAINT [PK_Additions] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Areas]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Areas](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[city] [int] NULL,
+ CONSTRAINT [PK_Areas] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Attendance]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Attendance](
+	[Att_id] [int] IDENTITY(1,1) NOT NULL,
+	[_machineNumber] [int] NULL,
+	[_enrollNumber] [int] NULL,
+	[_enrollMachineNumber] [int] NULL,
+	[_verifyMode] [int] NULL,
+	[_inOutMode] [int] NULL,
+	[_year] [int] NULL,
+	[_month] [int] NULL,
+	[_day] [int] NULL,
+	[_hour] [int] NULL,
+	[_minute] [int] NULL,
+	[takeJoureny] [int] NULL,
+	[_statu] [bit] NULL,
+ CONSTRAINT [PK_Attendance] PRIMARY KEY CLUSTERED 
+(
+	[Att_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[BackupHistory]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[BackupHistory](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[type] [int] NULL,
+	[user_id] [int] NULL,
+	[Time] [datetime] NULL,
+	[NextBackupTime] [datetime] NULL,
+ CONSTRAINT [PK_BackupHistory] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[BackupSetting]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[BackupSetting](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[type] [int] NULL,
+	[Activated] [bit] NULL,
+	[path] [nvarchar](max) NULL,
+	[options] [int] NULL,
+	[DeleteOld] [bit] NOT NULL,
+ CONSTRAINT [PK_BackupSetting] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Banks]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Banks](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[country] [int] NULL,
+	[city] [int] NULL,
+	[Acc_Code] [int] NULL,
+	[area] [int] NULL,
+	[tel] [nvarchar](50) NULL,
+	[mobile] [nvarchar](50) NULL,
+	[notes] [nvarchar](500) NULL,
+	[IS_Deleted] [bit] NULL,
+	[DisPre] [nvarchar](50) NULL,
+	[ChangeInPOS] [bit] NULL,
+ CONSTRAINT [PK_Banks] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Booking]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Booking](
+	[Bid] [int] IDENTITY(1,1) NOT NULL,
+	[MarineId] [int] NULL,
+	[UserId] [int] NULL,
+	[ClientId] [int] NULL,
+	[Bdate] [datetime] NULL,
+	[dateIn] [datetime] NULL,
+	[PeriodHour] [float] NULL,
+	[AditionID] [int] NULL,
+	[Price] [float] NULL,
+	[status] [nvarchar](20) NULL,
+	[BookingType] [nvarchar](20) NULL,
+	[notes] [nvarchar](500) NULL,
+	[IsDeleted] [bit] NULL,
+	[InvId] [int] NULL,
+	[PeriodMinute] [float] NULL,
+ CONSTRAINT [PK_Booking] PRIMARY KEY CLUSTERED 
+(
+	[Bid] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[BookingAddition]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[BookingAddition](
+	[Aid] [int] IDENTITY(1,1) NOT NULL,
+	[bookId] [int] NULL,
+	[AditionID] [int] NULL,
+	[Price] [float] NULL,
+	[quanty] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[IsDeleted] [bit] NULL,
+ CONSTRAINT [PK_BookingAddition] PRIMARY KEY CLUSTERED 
+(
+	[Aid] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Branch_safes_salla]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Branch_safes_salla](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[ServerMerchantId] [int] NOT NULL,
+	[LocalSafeId] [int] NOT NULL,
+	[LocalSafeName] [nvarchar](200) NULL,
+	[LocalBranchId] [int] NULL,
+	[LocalBranchName] [nvarchar](200) NULL,
+	[SallaBranchId] [bigint] NOT NULL,
+	[SallaBranchName] [nvarchar](200) NULL,
+	[IsActive] [bit] NOT NULL,
+	[UpdatedAt] [datetime2](7) NOT NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CahierClosedAndroid]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CahierClosedAndroid](
+	[CloseID] [int] NOT NULL,
+	[user_id] [nvarchar](50) NULL,
+	[StartDate] [datetime] NULL,
+	[EndDate] [datetime] NULL,
+	[Cash] [float] NULL,
+	[Network] [float] NULL,
+	[Returncash] [float] NULL,
+	[TotalNet] [float] NULL,
+	[CountInv] [int] NULL,
+	[CountinvR] [int] NULL,
+	[CashValue] [float] NULL,
+	[Diff] [float] NULL,
+	[html] [nvarchar](max) NULL,
+	[status] [bit] NULL,
+ CONSTRAINT [PK_CahierClosedAndroid] PRIMARY KEY CLUSTERED 
+(
+	[CloseID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CasherClosed]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CasherClosed](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[type] [int] NULL,
+	[user_id] [int] NOT NULL,
+	[startTime] [datetime] NOT NULL,
+	[endTime] [datetime] NOT NULL,
+	[ToT] [nvarchar](50) NOT NULL,
+	[CasherValue] [nvarchar](max) NOT NULL,
+	[diff] [nvarchar](50) NOT NULL,
+	[GlobalID] [nvarchar](50) NULL,
+	[branch] [int] NULL,
+	[ClosedId] [int] NULL,
+ CONSTRAINT [PK_CasherClosed] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CasherClosed_Sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CasherClosed_Sub](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ClosedId] [int] NULL,
+	[CashTotal] [float] NULL,
+	[SAfeNetVal] [float] NULL,
+	[ReturnSum] [float] NULL,
+	[NetworkSum] [float] NULL,
+	[AdditionVal] [float] NULL,
+	[PostPoneSales] [float] NULL,
+	[PostPoneRet] [float] NULL,
+	[InsurVal] [float] NULL,
+	[Discount] [float] NULL,
+	[AllVAT] [float] NULL,
+	[Expenses] [float] NULL,
+	[Purchases] [float] NULL,
+	[HostingVal] [float] NULL,
+	[IsDeleted] [bit] NULL,
+	[ExtraTax] [float] NULL,
+	[GlobalID] [nvarchar](50) NULL,
+ CONSTRAINT [PK_CasherClosed_Sub] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Cat_Table]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Cat_Table](
+	[Cat_ID] [int] IDENTITY(1,1) NOT NULL,
+	[Cat_Name] [nvarchar](50) NULL,
+	[emp] [int] NULL,
+ CONSTRAINT [PK_Cat_Table] PRIMARY KEY CLUSTERED 
+(
+	[Cat_ID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CategoryNotes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CategoryNotes](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[CatID] [nvarchar](50) NULL,
+	[Note] [nvarchar](150) NULL,
+	[AddPrice] [float] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Check_Close]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Check_Close](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[InvGlobalID] [nvarchar](50) NULL,
+	[ClosedId] [nvarchar](50) NULL,
+	[Empid] [int] NULL,
+ CONSTRAINT [PK_Check_Close] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Cities]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Cities](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[country] [int] NULL,
+ CONSTRAINT [PK_Cities] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CloseShiftCustomer]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CloseShiftCustomer](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ClosedId] [int] NULL,
+	[CustId] [int] NULL,
+	[Amount] [float] NULL,
+ CONSTRAINT [PK_CloseShiftCustomer] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CloudPayment]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CloudPayment](
+	[ID] [int] IDENTITY(1,1) NOT NULL,
+	[Name] [nvarchar](100) NULL,
+	[CloudID] [nvarchar](50) NULL,
+ CONSTRAINT [PK_CloudPayment] PRIMARY KEY CLUSTERED 
+(
+	[ID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CloudPaytypeSetting]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CloudPaytypeSetting](
+	[ID] [int] NULL,
+	[Name] [nvarchar](50) NULL,
+	[NameEn] [nvarchar](50) NULL,
+	[Paytype] [int] NULL,
+	[CloudPaytypeID] [nvarchar](50) NULL,
+	[BankId] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CloudPriceSetting]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CloudPriceSetting](
+	[ID] [int] IDENTITY(1,1) NOT NULL,
+	[Name] [nvarchar](20) NULL,
+	[CloudID] [nvarchar](20) NULL,
+ CONSTRAINT [PK_CloudPriceSetting] PRIMARY KEY CLUSTERED 
+(
+	[ID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[commentsTable]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[commentsTable](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[comment] [varchar](80) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[cont]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[cont](
+	[id] [int] NULL,
+	[date] [datetime] NULL,
+	[cust_id] [int] NULL,
+	[stock_id] [int] NULL,
+	[cont_desc] [nvarchar](max) NULL,
+	[val] [float] NULL,
+	[installval] [float] NULL,
+	[num] [int] NULL,
+	[lastval] [float] NULL,
+	[first_date] [datetime] NULL,
+	[period] [int] NULL,
+	[paid] [float] NULL,
+	[sand_id] [int] NULL,
+	[is_deleted] [bit] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[cont_installments]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[cont_installments](
+	[cont_id] [int] NULL,
+	[install_num] [int] NULL,
+	[date] [datetime] NULL,
+	[val] [float] NULL,
+	[paid] [float] NULL,
+	[notes] [nvarchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Cost_Center]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Cost_Center](
+	[ID] [int] IDENTITY(1,1) NOT NULL,
+	[Code] [int] NULL,
+	[name] [varchar](50) NULL,
+	[name_en] [varchar](50) NULL,
+	[ParentCode] [int] NULL,
+	[type] [int] NULL,
+	[Is_Deleted] [bit] NULL,
+	[Created_date] [datetime] NULL,
+	[BranchID] [int] NULL,
+ CONSTRAINT [PK_Cost_Center] PRIMARY KEY CLUSTERED 
+(
+	[ID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[costs]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[costs](
+	[id] [int] NULL,
+	[name] [nvarchar](100) NULL,
+	[nameEn] [nvarchar](100) NULL,
+	[account] [nvarchar](50) NULL,
+	[costCenterId] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Countries]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Countries](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[nationality] [nvarchar](50) NULL,
+	[flag_img] [image] NULL,
+ CONSTRAINT [PK_Countries] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CreditDeptNotes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CreditDeptNotes](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Doc_No] [int] NOT NULL,
+	[Doc_Type] [int] NULL,
+	[Inv_No] [int] NULL,
+	[Discount] [float] NULL,
+	[Net] [float] NULL,
+	[emp_id] [int] NULL,
+	[notes] [nvarchar](50) NULL,
+	[cust_id] [int] NULL,
+	[Inv_Val] [float] NULL,
+	[Date] [datetime] NULL,
+	[Edit_Date] [datetime] NULL,
+	[IS_Deleted] [bit] NULL,
+	[BranchId] [int] NULL,
+ CONSTRAINT [PK_CreditDeptNotes] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CSRProperties]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CSRProperties](
+	[ID] [int] NULL,
+	[commonName] [nvarchar](100) NULL,
+	[serialNumber] [nvarchar](500) NULL,
+	[organizationIdentifier] [nvarchar](500) NULL,
+	[organizationUnitName] [nvarchar](500) NULL,
+	[organizationName] [nvarchar](500) NULL,
+	[countryName] [nvarchar](50) NULL,
+	[invoiceType] [nvarchar](50) NULL,
+	[address] [nvarchar](100) NULL,
+	[industry] [nvarchar](100) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Currency_Lastprice]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Currency_Lastprice](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[date] [datetime] NULL,
+	[Is_Deleted] [bit] NULL,
+ CONSTRAINT [PK_Currency_Lastprice] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Currency_Lastprice_Sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Currency_Lastprice_Sub](
+	[doc_id] [int] NOT NULL,
+	[currency1] [int] NULL,
+	[time] [nvarchar](15) NULL,
+	[date] [datetime] NULL,
+	[purch_price] [float] NULL,
+	[sale_price] [float] NULL,
+	[low_purch_price] [float] NULL,
+	[high_purch_price] [float] NULL,
+	[low_sale_price] [float] NULL,
+	[high_sale_price] [float] NULL,
+	[Emp] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Currency_SafeBalance]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Currency_SafeBalance](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[currency_id] [int] NULL,
+	[safe_id] [int] NULL,
+	[balance] [float] NULL,
+ CONSTRAINT [PK_Currency_Balance] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CustomerMeasurements]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CustomerMeasurements](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[CustId] [int] NOT NULL,
+	[Length] [nvarchar](50) NULL,
+	[Shoulder] [nvarchar](50) NULL,
+	[Chest] [nvarchar](50) NULL,
+	[Waist] [nvarchar](50) NULL,
+	[Sleeve] [nvarchar](50) NULL,
+	[Neck] [nvarchar](50) NULL,
+	[ArmWidth] [nvarchar](50) NULL,
+	[StepWidth] [nvarchar](50) NULL,
+	[pageNo] [nvarchar](50) NULL,
+	[MeasurementNote] [nvarchar](50) NULL,
+	[CreatedAt] [datetime] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Customers]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Customers](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[country] [int] NULL,
+	[city] [int] NULL,
+	[area] [int] NULL,
+	[act] [int] NULL,
+	[national_id] [nvarchar](50) NULL,
+	[tel] [nvarchar](50) NULL,
+	[mobile] [nvarchar](50) NULL,
+	[fax] [nvarchar](50) NULL,
+	[email] [nvarchar](50) NULL,
+	[notes] [nvarchar](500) NULL,
+	[IS_Deleted] [bit] NULL,
+	[maxdepit] [float] NULL,
+	[type] [int] NULL,
+	[tax_no] [nvarchar](50) NULL,
+	[AccountCode] [int] NULL,
+	[IdScan] [image] NULL,
+	[Branch] [int] NULL,
+	[PlotIdentification] [nvarchar](20) NULL,
+	[BuildingNumber] [nvarchar](20) NULL,
+	[StreetName] [nvarchar](100) NULL,
+	[AdditionalStreetName] [nvarchar](100) NULL,
+	[District] [nvarchar](100) NULL,
+	[PostalZone] [nvarchar](20) NULL,
+	[CrNo] [nvarchar](100) NULL,
+	[ISCredit] [bit] NULL,
+	[Pricing] [int] NULL,
+	[area2] [nvarchar](100) NULL,
+	[city2] [nvarchar](100) NULL,
+ CONSTRAINT [PK_Clients] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CustomizedDGV]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CustomizedDGV](
+	[user_id] [int] NULL,
+	[Form_id] [int] NULL,
+	[Column_id] [int] NULL,
+	[IS_Visible] [bit] NULL,
+	[Width] [float] NULL,
+	[col_name] [nvarchar](30) NULL,
+	[col_nameEn] [nvarchar](30) NULL,
+	[IS_filled] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[DailyOrderCounter]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[DailyOrderCounter](
+	[OrderDate] [date] NOT NULL,
+	[LastOrderNo] [int] NOT NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[OrderDate] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[DbVersions]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[DbVersions](
+	[VersionNo] [int] NOT NULL,
+	[Versiontxt] [nvarchar](20) NULL,
+	[Description] [nvarchar](max) NULL,
+	[VersionType] [nvarchar](50) NULL,
+	[PublishDate] [nvarchar](50) NULL,
+	[UpdateDate] [datetime] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[DealPersons]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[DealPersons](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[Tel] [nvarchar](50) NULL,
+	[Mobile] [nvarchar](50) NULL,
+	[job] [int] NULL,
+	[Address] [nvarchar](500) NULL,
+	[notes] [nvarchar](500) NULL,
+ CONSTRAINT [PK_DealPersons] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Departments]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Departments](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[manag_id] [int] NULL,
+	[name] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Departments] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Documents]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Documents](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[FileName] [nvarchar](255) NULL,
+	[FileUrl] [nvarchar](max) NULL,
+	[GlobalId] [nvarchar](250) NULL,
+	[type] [int] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[EmpBranches]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[EmpBranches](
+	[emp] [int] NULL,
+	[branch] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Employees]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Employees](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[manag] [int] NULL,
+	[dep] [int] NULL,
+	[state] [int] NULL,
+	[job] [int] NULL,
+	[branch] [int] NULL,
+	[birth_date] [datetime] NULL,
+	[insurance_no] [int] NULL,
+	[work_date] [datetime] NULL,
+	[marital_state] [int] NULL,
+	[nationality] [int] NULL,
+	[sex] [char](1) NULL,
+	[tel] [nvarchar](50) NULL,
+	[mobile] [nvarchar](50) NULL,
+	[email] [nvarchar](50) NULL,
+	[address] [nvarchar](500) NULL,
+	[notes] [nvarchar](500) NULL,
+	[image] [image] NULL,
+	[salary_basic] [float] NULL,
+	[salary_add] [float] NULL,
+	[salary_other] [float] NULL,
+	[house] [float] NULL,
+	[food] [float] NULL,
+	[travel] [float] NULL,
+	[medical] [float] NULL,
+	[IS_Deleted] [bit] NULL,
+	[AccCode] [nvarchar](50) NULL,
+	[CardNo] [nvarchar](50) NULL,
+	[BankNo] [nvarchar](50) NULL,
+	[BankName] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Employees] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[EmpSalaryAddSub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[EmpSalaryAddSub](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[emp] [int] NULL,
+	[type] [int] NULL,
+	[date] [datetime] NULL,
+	[val] [float] NULL,
+	[notes] [nvarchar](500) NULL,
+	[user_id] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[SubFromSalary] [bit] NULL,
+	[EntryGlobalId] [nvarchar](max) NULL,
+	[Cash] [int] NULL,
+	[Bank] [int] NULL,
+ CONSTRAINT [PK_EmpSalaryAddSub] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[EntryTypes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[EntryTypes](
+	[Id] [int] NULL,
+	[Name] [nvarchar](50) NULL,
+	[Name_En] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[EquipMakes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[EquipMakes](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](100) NOT NULL,
+	[nameEN] [nvarchar](100) NULL,
+	[IS_Deleted] [bit] NOT NULL,
+	[CreatedDate] [datetime] NOT NULL,
+	[CreatedBy] [nvarchar](100) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[EquipModels]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[EquipModels](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[make_id] [int] NOT NULL,
+	[name] [nvarchar](100) NOT NULL,
+	[nameEN] [nvarchar](100) NULL,
+	[IS_Deleted] [bit] NOT NULL,
+	[CreatedDate] [datetime] NOT NULL,
+	[CreatedBy] [nvarchar](100) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[EtaSetting]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[EtaSetting](
+	[Id] [int] NULL,
+	[Active] [bit] NULL,
+	[Receipt] [bit] NULL,
+	[BranchCode] [nvarchar](50) NULL,
+	[ActivityCode] [nvarchar](50) NULL,
+	[EinvoieType] [nvarchar](50) NULL,
+	[SignType] [nvarchar](50) NULL,
+	[DocumentTypeVersion] [nvarchar](50) NULL,
+	[EtaCode] [nvarchar](50) NULL,
+	[EtaClientId] [nvarchar](50) NULL,
+	[EtaClientSecret1] [nvarchar](500) NULL,
+	[EtaClientSecret2] [nvarchar](500) NULL,
+	[Pinpass] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Forms]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Forms](
+	[id] [int] NOT NULL,
+	[name] [nvarchar](500) NULL,
+	[NameEn] [nvarchar](500) NULL,
+	[FormName] [nvarchar](500) NULL,
+	[IS_Parent] [bit] NULL,
+	[Parent_id] [int] NULL,
+	[buttonName] [nvarchar](50) NULL,
+	[IS_New_Visible] [bit] NULL,
+	[IS_Save_Visible] [bit] NULL,
+	[IS_Delete_Visible] [bit] NULL,
+	[IS_Search_Visible] [bit] NULL,
+	[IS_Print_Visible] [bit] NULL,
+ CONSTRAINT [PK_Forms] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Foundation]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Foundation](
+	[id] [int] NOT NULL,
+	[nameA] [nvarchar](500) NULL,
+	[nameE] [nvarchar](500) NULL,
+	[FieldA] [nvarchar](500) NULL,
+	[FieldE] [nvarchar](500) NULL,
+	[bsn_no] [nvarchar](50) NULL,
+	[country] [nvarchar](50) NULL,
+	[Address] [nvarchar](500) NULL,
+	[Tel] [nvarchar](50) NULL,
+	[Mobile] [nvarchar](50) NULL,
+	[city] [nvarchar](50) NULL,
+	[Email] [nvarchar](50) NULL,
+	[website] [nvarchar](500) NULL,
+	[Logo] [image] NULL,
+	[tax_no] [nvarchar](50) NULL,
+	[EnableE_Invoice] [bit] NULL,
+	[Area] [nvarchar](50) NULL,
+	[PlotIdentification] [nvarchar](100) NULL,
+	[BuildingNumber] [nvarchar](50) NULL,
+	[StreetName] [nvarchar](200) NULL,
+	[AdditionalStreetName] [nvarchar](200) NULL,
+	[District] [nvarchar](200) NULL,
+	[PostalZone] [nvarchar](50) NULL,
+	[EgyEInvoice] [bit] NULL,
+	[crtype] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Company] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Glasses]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Glasses](
+	[InvGlobalID] [varchar](20) NULL,
+	[ItemId] [int] NULL,
+	[orientation] [varchar](10) NULL,
+	[SPH] [varchar](10) NULL,
+	[CYL] [varchar](10) NULL,
+	[AX] [varchar](10) NULL,
+	[ADD] [varchar](10) NULL,
+	[IPD] [varchar](10) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[GroupMarine]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[GroupMarine](
+	[id] [int] NOT NULL,
+	[code] [char](1) NOT NULL,
+	[name] [nvarchar](100) NULL,
+	[nameEN] [nvarchar](100) NULL,
+	[HourPrice] [float] NULL,
+	[HalfHPrice] [float] NULL,
+	[OfferHour] [float] NULL,
+	[OfferHalf] [float] NULL,
+	[IsDeleted] [bit] NULL,
+	[image] [image] NULL,
+ CONSTRAINT [PK_GroupMarine] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[His_Entry]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[His_Entry](
+	[Procid] [int] IDENTITY(1,1) NOT NULL,
+	[Id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[doc_no] [int] NULL,
+	[EmpID] [int] NULL,
+	[type] [int] NULL,
+	[state] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[branch] [int] NULL,
+	[IS_Deleted] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[His_Entry_sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[His_Entry_sub](
+	[Procid] [int] NULL,
+	[res_id] [int] NULL,
+	[dept] [float] NULL,
+	[credit] [float] NULL,
+	[acc_no] [int] NULL,
+	[CCcode] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[branch] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[HR_InOutAct_Tbl]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[HR_InOutAct_Tbl](
+	[IDD] [int] IDENTITY(1,1) NOT NULL,
+	[dwEnrollNumber] [int] NULL,
+	[name] [nvarchar](50) NULL,
+	[password] [nvarchar](50) NULL,
+	[privileg] [int] NULL,
+	[dwVerifyMode] [int] NULL,
+	[dwInOutMode] [int] NULL,
+	[timeStr] [nvarchar](50) NULL,
+	[_machineNumber] [int] NULL,
+	[_enrollNumber] [int] NULL,
+	[_enrollMachineNumber] [int] NULL,
+	[_verifyMode] [int] NULL,
+	[_inOutMode] [int] NULL,
+	[_year] [int] NULL,
+	[_month] [int] NULL,
+	[_day] [int] NULL,
+	[_hour] [int] NULL,
+	[_minute] [int] NULL,
+ CONSTRAINT [PK_HR_InOutAct_Tbl] PRIMARY KEY CLUSTERED 
+(
+	[IDD] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[intel]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[intel](
+	[hai] [nvarchar](50) NULL,
+	[bal] [nvarchar](50) NULL,
+	[cash] [nvarchar](50) NULL,
+	[DAC] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[intel1]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[intel1](
+	[hai] [int] NULL,
+	[bal] [nvarchar](100) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[InvContratct]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[InvContratct](
+	[InvGlobalID] [varchar](20) NOT NULL,
+	[proc_id] [int] IDENTITY(1,1) NOT NULL,
+	[proc_type] [int] NULL,
+	[id] [int] NULL,
+	[date] [datetime] NULL,
+	[inv_type] [int] NULL,
+	[safe] [int] NULL,
+	[stock] [int] NULL,
+	[cust_id] [int] NULL,
+	[sales_emp] [int] NULL,
+	[InvTotal] [float] NULL,
+	[tot_purch] [float] NULL,
+	[AdditionsTot] [float] NULL,
+	[Insurance] [float] NULL,
+	[tot_net] [float] NULL,
+	[EntryID] [int] NULL,
+	[purch_rest_id] [int] NULL,
+	[Reff_No] [varchar](20) NULL,
+	[Reff_date] [datetime] NULL,
+	[branch] [int] NULL,
+	[IS_Buy] [bit] NULL,
+	[minus] [float] NULL,
+	[paid] [float] NULL,
+	[salesman] [int] NULL,
+	[tax] [float] NULL,
+	[ExtraVAT] [float] NULL,
+	[pay_type] [int] NULL,
+	[bank] [int] NULL,
+	[cash] [float] NULL,
+	[visa] [float] NULL,
+	[notes] [nvarchar](150) NULL,
+	[IS_Deleted] [bit] NULL,
+	[Sync] [bit] NULL,
+	[InvProfit] [float] NULL,
+	[InvoiceStatus] [int] NULL,
+	[AdditionalCost] [float] NULL,
+	[PriceIncVAT] [bit] NULL,
+	[PaymentStatus] [int] NULL,
+	[IssueDate] [datetime] NULL,
+	[InvCombinedId] [nvarchar](20) NULL,
+	[ItemsDiscount] [float] NULL,
+	[InvCost] [float] NULL,
+	[FreeVATSales] [float] NULL,
+	[InvSum] [float] NULL,
+	[VATPercent] [float] NULL,
+	[CurrencyCode] [nvarchar](10) NULL,
+	[CloudID] [nvarchar](20) NULL,
+	[CashCustomerName] [nvarchar](2000) NULL,
+	[CashCustomerMobile] [nvarchar](2000) NULL,
+	[QRCode] [nvarchar](max) NULL,
+	[InvoiceHash] [nvarchar](max) NULL,
+	[UUID] [nvarchar](200) NULL,
+	[ZatcaSent] [bit] NULL,
+	[TotalWithholdingTax] [float] NULL,
+	[TableNo] [nvarchar](20) NULL,
+	[Balance_previews] [decimal](18, 2) NULL,
+	[contract_total_value] [decimal](18, 2) NULL,
+	[original_work_amount] [decimal](18, 2) NULL,
+	[special_discount] [decimal](18, 2) NULL,
+	[amount_after_discount] [decimal](18, 2) NULL,
+	[vat_amount] [decimal](18, 2) NULL,
+	[total_with_vat] [decimal](18, 2) NULL,
+	[work_guarantee] [decimal](18, 2) NULL,
+	[net_due_this_payment] [decimal](18, 2) NULL,
+	[previously_paid_amount] [decimal](18, 2) NULL,
+	[remaining_contract_balance] [decimal](18, 2) NULL,
+ CONSTRAINT [PK_InvContratct] PRIMARY KEY CLUSTERED 
+(
+	[InvGlobalID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[InvContratct_Sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[InvContratct_Sub](
+	[InvGlobalID] [varchar](20) NULL,
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[proc_id] [int] NULL,
+	[proc_type] [int] NULL,
+	[store] [int] NULL,
+	[ItemId] [int] NULL,
+	[unit] [int] NULL,
+	[UnitEquality] [float] NULL,
+	[val] [float] NULL,
+	[val1] [float] NULL,
+	[exchange_price] [float] NULL,
+	[expire_date] [datetime] NULL,
+	[taxperc] [float] NULL,
+	[taxval] [float] NULL,
+	[discount] [float] NULL,
+	[notes] [nvarchar](150) NULL,
+	[Description] [nvarchar](max) NULL,
+	[ProductId] [int] NULL,
+	[AvrgCost] [float] NULL,
+	[CurrentQnty] [float] NULL,
+	[ItemAddedCost] [float] NULL,
+	[ItemPriceWithoutVAT] [float] NULL,
+	[WithholdingTax] [float] NULL,
+	[WithholdingTaxPerc] [float] NULL,
+	[ItemCostCenter] [nvarchar](50) NULL,
+	[ItemAdditionalTax] [float] NULL,
+	[ItemAdditionalTaxPerc] [float] NULL,
+	[Additionsitem] [float] NULL,
+ CONSTRAINT [PK_InvContratct_Sub] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[InvCounters]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[InvCounters](
+	[Branch] [int] NOT NULL,
+	[InvType] [int] NOT NULL,
+	[ProcType] [int] NOT NULL,
+	[LastID] [int] NULL,
+ CONSTRAINT [PK_InvCounters] PRIMARY KEY CLUSTERED 
+(
+	[Branch] ASC,
+	[InvType] ASC,
+	[ProcType] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[InvoiceCost]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[InvoiceCost](
+	[InvoiceCostId] [int] NULL,
+	[InvoiceCostNo] [int] NULL,
+	[InvGlobalID] [nvarchar](50) NULL,
+	[CostId] [int] NULL,
+	[CostName] [nvarchar](100) NULL,
+	[Cost] [float] NULL,
+	[CostDate] [datetime] NULL,
+	[Note] [nvarchar](150) NULL,
+	[costCenter] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[InvoicePayments]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[InvoicePayments](
+	[PaymentId] [int] NULL,
+	[InvGlobalID] [nvarchar](50) NULL,
+	[PayType] [int] NULL,
+	[Treasury] [int] NULL,
+	[BankId] [int] NULL,
+	[Paid] [float] NULL,
+	[Remainder] [float] NULL,
+	[CashPayment] [float] NULL,
+	[MadaPayment] [float] NULL,
+	[VisaPayment] [float] NULL,
+	[PaymentDate] [datetime] NULL,
+	[DueDate] [datetime] NULL,
+	[EmpId] [int] NULL,
+	[PaymentStatus] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[InvTypes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[InvTypes](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[InvType] [int] NULL,
+	[ProcType] [int] NULL,
+	[Name] [nvarchar](50) NULL,
+	[NameEn] [nvarchar](50) NULL,
+	[IsInput] [int] NULL,
+ CONSTRAINT [PK_InvTypes] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemAlternativeCodes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemAlternativeCodes](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ItemId] [int] NOT NULL,
+	[AltCode] [nvarchar](100) NOT NULL,
+	[Notes] [nvarchar](255) NULL,
+	[IS_Deleted] [bit] NOT NULL,
+	[CreatedDate] [datetime] NOT NULL,
+	[CreatedBy] [nvarchar](100) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Itembarcodes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Itembarcodes](
+	[ItemID] [int] NULL,
+	[barcode] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemBatchDeliveries]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemBatchDeliveries](
+	[BatchDelivIncId] [int] NULL,
+	[BatchDelivNo] [int] NULL,
+	[InvGlobalID] [varchar](20) NULL,
+	[ItemId] [int] NULL,
+	[ItemUnitId] [int] NULL,
+	[ItemQuantity] [float] NULL,
+	[BatchDeliveryDate] [datetime] NULL,
+	[InvertoryEmp] [int] NULL,
+	[RecipientID] [int] NULL,
+	[Note] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemComponents]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemComponents](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[itemId] [int] NULL,
+	[ComponentId] [int] NULL,
+	[price] [float] NULL,
+	[quantity] [float] NULL,
+	[unit] [int] NULL,
+	[total] [int] NULL,
+	[type] [bit] NULL,
+	[store] [int] NULL,
+ CONSTRAINT [PK_ItemsComposite] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemDetails]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemDetails](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ItemId] [int] NOT NULL,
+	[SupplierRefCode] [nvarchar](50) NULL,
+	[ImporterName] [nvarchar](150) NULL,
+	[NetWeight] [float] NULL,
+	[LeadTime] [nvarchar](100) NULL,
+	[Notes] [nvarchar](255) NULL,
+	[IS_Deleted] [bit] NOT NULL,
+	[CreatedDate] [datetime] NOT NULL,
+	[CreatedBy] [nvarchar](100) NULL,
+	[UpdatedDate] [datetime] NULL,
+	[UpdatedBy] [nvarchar](100) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemPrices]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemPrices](
+	[Proc_id] [int] IDENTITY(1,1) NOT NULL,
+	[ItemID] [int] NULL,
+	[UnitID] [int] NULL,
+	[time] [nvarchar](15) NULL,
+	[date] [datetime] NULL,
+	[purch_price] [float] NULL,
+	[sale_price] [float] NULL,
+	[low_purch_price] [float] NULL,
+	[high_purch_price] [float] NULL,
+	[low_sale_price] [float] NULL,
+	[high_sale_price] [float] NULL,
+	[CompetitorPrice] [float] NULL,
+	[Emp] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[ConsumerPrice] [float] NULL,
+	[WholesalePrice] [float] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemSerialNo]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemSerialNo](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ItemId] [int] NULL,
+	[SerialNo] [nvarchar](50) NULL,
+	[InvGlobalID] [nvarchar](20) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemsType]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemsType](
+	[Id] [int] NOT NULL,
+	[name] [nvarchar](30) NULL,
+	[name_en] [nvarchar](30) NULL,
+ CONSTRAINT [PK_ItemsType] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemUnits]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemUnits](
+	[ItemId] [int] NULL,
+	[unit] [int] NULL,
+	[perc] [int] NULL,
+	[purch] [float] NULL,
+	[sale] [float] NULL,
+	[barcode] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ItemVehicleFitment]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ItemVehicleFitment](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ItemId] [int] NOT NULL,
+	[MakeId] [int] NOT NULL,
+	[ModelId] [int] NOT NULL,
+	[YearFrom] [int] NULL,
+	[YearTo] [int] NULL,
+	[Notes] [nvarchar](255) NULL,
+	[IS_Deleted] [bit] NOT NULL,
+	[CreatedDate] [datetime] NOT NULL,
+	[CreatedBy] [nvarchar](100) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[jobs]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[jobs](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+ CONSTRAINT [PK_jobs] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Log4NetLog]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Log4NetLog](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[LogDate] [datetime] NOT NULL,
+	[Thread] [varchar](255) NOT NULL,
+	[Level] [varchar](50) NOT NULL,
+	[Logger] [varchar](255) NOT NULL,
+	[Message] [nvarchar](4000) NOT NULL,
+	[Exception] [nvarchar](2000) NULL,
+	[EmpID] [int] NULL,
+ CONSTRAINT [PK_Log4NetLog] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Managements]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Managements](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Managements] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Marine]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Marine](
+	[id] [int] NOT NULL,
+	[MarineCode] [nvarchar](50) NULL,
+	[Name] [nvarchar](500) NULL,
+	[nameEN] [nvarchar](500) NULL,
+	[Groupcode] [nvarchar](50) NULL,
+	[OwnerId] [int] NULL,
+	[OwnerPercent] [float] NULL,
+	[CaptainId] [int] NULL,
+	[RegDate] [datetime] NULL,
+	[state] [bit] NULL,
+	[IS_InPlan] [bit] NULL,
+	[IS_Deleted] [bit] NULL,
+	[PassengerNo] [int] NULL,
+ CONSTRAINT [PK_Marine] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[MarineOperPeriod]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[MarineOperPeriod](
+	[periodId] [int] IDENTITY(1,1) NOT NULL,
+	[groupID] [int] NULL,
+	[user] [int] NULL,
+	[LastRest] [datetime] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Marital_status]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Marital_status](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Marital_status] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Offer]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Offer](
+	[OfferID] [int] NOT NULL,
+	[OfferType] [int] NULL,
+	[OfferStartDate] [datetime] NULL,
+	[OfferExpire] [datetime] NULL,
+	[OfferName] [nvarchar](50) NULL,
+	[OfferDate] [datetime] NULL,
+	[OfferAccount] [nvarchar](50) NULL,
+	[InvoiceID] [int] NULL,
+	[OfferValue] [float] NULL,
+	[OfferPercentage] [float] NULL,
+	[OfferValueTarget] [float] NULL,
+	[OfferQntyTarget] [float] NULL,
+	[EmpId] [int] NULL,
+	[IsDeleted] [bit] NULL,
+ CONSTRAINT [PK_License] PRIMARY KEY CLUSTERED 
+(
+	[OfferID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[OfferForClient]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[OfferForClient](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[OfferId] [int] NULL,
+	[ClientID] [int] NULL,
+	[CatatogryID] [int] NULL,
+	[ItemID] [int] NULL,
+	[IsForAllItems] [bit] NULL,
+	[unit] [int] NULL,
+	[OfferTargetQnty] [float] NULL,
+	[OfferItemValue] [float] NULL,
+	[OfferItemPercentage] [float] NULL,
+ CONSTRAINT [PK_OfferForClient] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[OfferItems]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[OfferItems](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[OfferId] [int] NULL,
+	[CatatogryID] [int] NULL,
+	[ItemID] [int] NULL,
+	[OfferNatural] [int] NULL,
+	[IsGroupedItems] [bit] NULL,
+	[unit] [int] NULL,
+	[OfferTargetQnty] [float] NULL,
+	[OfferItemTargetQnty] [float] NULL,
+	[OfferItemPrice] [float] NULL,
+	[OfferTotalPrice] [float] NULL,
+	[OfferItemValue] [float] NULL,
+	[OfferItemPercentage] [float] NULL,
+	[OfferItemStock] [float] NULL,
+ CONSTRAINT [PK_OfferItems] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[OperationPermission]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[OperationPermission](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[emp] [int] NOT NULL,
+	[OperNo] [int] NULL,
+	[pwd] [nvarchar](50) NULL,
+	[lastChanged] [datetime] NULL,
+	[IS_Deleted] [bit] NULL,
+	[OperVal] [float] NULL,
+	[Activated] [bit] NULL,
+ CONSTRAINT [PK_OperationPermission_1] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[OperationPlan]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[OperationPlan](
+	[id] [int] NOT NULL,
+	[GroupId] [int] NULL,
+	[Date] [datetime] NULL,
+	[notes] [nvarchar](500) NULL,
+	[IsDeleted] [bit] NULL,
+	[userID] [int] NULL,
+	[OperPeriod] [float] NULL,
+ CONSTRAINT [PK_OperationPlan] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[OperMaxDiscount]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[OperMaxDiscount](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[MaxDicountParcent] [int] NULL,
+	[MaxDicount] [int] NULL,
+	[emp] [int] NULL,
+ CONSTRAINT [PK_OperMaxDiscount] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[OperPermissTypes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[OperPermissTypes](
+	[Id] [int] NULL,
+	[name] [nvarchar](50) NULL,
+	[name_en] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[OperPlanSub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[OperPlanSub](
+	[PlanID] [int] NOT NULL,
+	[MarineID] [int] NULL,
+	[groupID] [int] NULL,
+	[orderNo] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[OrderNumbers]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[OrderNumbers](
+	[InvGlobalID] [nvarchar](100) NOT NULL,
+	[OrderDate] [date] NOT NULL,
+	[OrderNo] [int] NOT NULL,
+ CONSTRAINT [PK_OrderNumbers] PRIMARY KEY CLUSTERED 
+(
+	[InvGlobalID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_OrderNo] UNIQUE NONCLUSTERED 
+(
+	[OrderDate] ASC,
+	[OrderNo] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Other_Column]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Other_Column](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[R1] [nvarchar](50) NULL,
+	[R2] [nvarchar](50) NULL,
+	[R3] [nvarchar](50) NULL,
+	[R4] [nvarchar](50) NULL,
+	[R5] [nvarchar](50) NULL,
+	[L1] [nvarchar](50) NULL,
+	[L2] [nvarchar](50) NULL,
+	[L3] [nvarchar](50) NULL,
+	[L4] [nvarchar](50) NULL,
+	[L5] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Other_Column] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Owners]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Owners](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[country] [int] NULL,
+	[city] [int] NULL,
+	[area] [int] NULL,
+	[act] [int] NULL,
+	[national_id] [nvarchar](50) NULL,
+	[tel] [nvarchar](50) NULL,
+	[mobile] [nvarchar](50) NULL,
+	[fax] [nvarchar](50) NULL,
+	[email] [nvarchar](50) NULL,
+	[notes] [nvarchar](500) NULL,
+	[IS_Deleted] [bit] NULL,
+	[maxdepit] [float] NULL,
+	[type] [int] NULL,
+	[tax_no] [nvarchar](50) NULL,
+	[AccountCode] [int] NULL,
+	[IdScan] [image] NULL,
+ CONSTRAINT [PK_Owners] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Paste Errors]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Paste Errors](
+	[Field0] [nvarchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PeriodLocks]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PeriodLocks](
+	[LockID] [int] IDENTITY(1,1) NOT NULL,
+	[PeriodID] [int] NULL,
+	[ModuleName] [nvarchar](50) NULL,
+	[IsLocked] [bit] NULL,
+	[LockedBy] [nvarchar](100) NULL,
+	[LockedDate] [datetime] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[LockID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_ContractInv]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_ContractInv](
+	[Contr_id] [int] IDENTITY(1,1) NOT NULL,
+	[ContrNo] [int] NOT NULL,
+	[ContrType] [int] NULL,
+	[ProcType] [int] NULL,
+	[statusPk] [int] NULL,
+	[BankId] [int] NULL,
+	[PayType] [int] NULL,
+	[TreasuryPk] [int] NULL,
+	[BranchPk] [int] NULL,
+	[RestractionPk] [int] NULL,
+	[PayerName] [nvarchar](50) NULL,
+	[ClientPk] [int] NULL,
+	[EmpNo] [int] NULL,
+	[RegsDate] [datetime] NULL,
+	[RefrNo] [int] NULL,
+	[ExcutePeriod] [int] NULL,
+	[Salesman] [int] NULL,
+	[StartDate] [datetime] NULL,
+	[EndDate] [datetime] NULL,
+	[TotVal] [float] NULL,
+	[VATVal] [float] NULL,
+	[discount] [float] NULL,
+	[NetCost] [float] NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_PM_ContractInv] PRIMARY KEY CLUSTERED 
+(
+	[Contr_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_ContractInvSub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_ContractInvSub](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ContrNo] [int] NULL,
+	[status] [int] NULL,
+	[TermPk] [int] NULL,
+	[Quntity] [int] NULL,
+	[price] [float] NULL,
+	[VAT] [float] NULL,
+	[discount] [float] NULL,
+	[notes] [varchar](50) NULL,
+ CONSTRAINT [PK_PM_ContractInvSub] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_Contractor]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_Contractor](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[country] [int] NULL,
+	[city] [int] NULL,
+	[area] [int] NULL,
+	[act] [int] NULL,
+	[national_id] [nvarchar](50) NULL,
+	[tel] [nvarchar](20) NULL,
+	[mobile] [nvarchar](20) NULL,
+	[email] [nvarchar](30) NULL,
+	[notes] [nvarchar](100) NULL,
+	[IS_Deleted] [bit] NULL,
+	[maxdepit] [float] NULL,
+	[type] [int] NULL,
+	[tax_no] [nvarchar](50) NULL,
+	[AccountCode] [int] NULL,
+	[IdScan] [image] NULL,
+	[bankName] [nvarchar](100) NULL,
+	[bankAccount] [varchar](25) NULL,
+	[bankAddress] [nvarchar](100) NULL,
+	[swiftCode] [varchar](25) NULL,
+	[IBAN] [varchar](25) NULL,
+ CONSTRAINT [PK_PM_Contractor] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_FileType]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_FileType](
+	[id] [int] NOT NULL,
+	[name] [nvarchar](100) NULL,
+	[nameEn] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_GroupStages]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_GroupStages](
+	[ProjGropID] [int] NOT NULL,
+	[StageID] [int] NOT NULL,
+	[StageOrder] [int] NULL,
+	[IS_Deleted] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_Projects]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_Projects](
+	[id] [int] NOT NULL,
+	[name] [nvarchar](500) NULL,
+	[nameEN] [nvarchar](500) NULL,
+	[TermPk] [int] NULL,
+	[ContractPk] [int] NULL,
+	[ContractorPk] [int] NULL,
+	[location] [nvarchar](500) NULL,
+	[countryPk] [int] NULL,
+	[statusPk] [int] NULL,
+	[RegsDate] [datetime] NULL,
+	[StartDate] [datetime] NULL,
+	[EndDate] [datetime] NULL,
+	[Type] [int] NULL,
+	[ExecutionPeriod] [varchar](50) NULL,
+	[Quantity] [int] NULL,
+	[price] [float] NULL,
+	[cost] [float] NULL,
+	[VAT] [float] NULL,
+	[discount] [float] NULL,
+	[image] [image] NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_PM_Projects] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_ProjStages]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_ProjStages](
+	[ProjID] [int] NOT NULL,
+	[StageID] [int] NOT NULL,
+	[StageOrder] [int] NOT NULL,
+	[IsAccredit] [bit] NULL,
+	[CloseDate] [datetime] NULL,
+	[IS_Deleted] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_Requirement]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_Requirement](
+	[RequirID] [int] IDENTITY(1,1) NOT NULL,
+	[RequirNo] [int] NOT NULL,
+	[Country] [int] NULL,
+	[City] [int] NULL,
+	[Address] [nvarchar](50) NULL,
+	[Population] [decimal](18, 0) NULL,
+	[RegsDate] [datetime] NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_PM_Requirement] PRIMARY KEY CLUSTERED 
+(
+	[RequirID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_RequirementSub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_RequirementSub](
+	[RequirNo] [int] NOT NULL,
+	[TermPk] [int] NULL,
+	[Quntity] [int] NULL,
+	[price] [float] NULL,
+	[Reff_No] [int] NULL,
+	[status] [bit] NULL,
+ CONSTRAINT [PK_PM_RequirementSub] PRIMARY KEY CLUSTERED 
+(
+	[RequirNo] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_Stages]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_Stages](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](100) NULL,
+	[nameEn] [nvarchar](50) NULL,
+	[IS_Deleted] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_Status]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_Status](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](100) NULL,
+	[nameEn] [nvarchar](50) NULL,
+	[IS_Deleted] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PM_Terms]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PM_Terms](
+	[Code] [int] NOT NULL,
+	[name] [nvarchar](100) NULL,
+	[nameEN] [nvarchar](100) NULL,
+	[Type] [int] NULL,
+	[ParentCode] [int] NULL,
+	[ExecutionPeriod] [int] NULL,
+	[price] [float] NULL,
+	[LastPrice] [float] NULL,
+	[cost] [float] NULL,
+	[VAT] [float] NULL,
+	[discount] [float] NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_PM_Terms] PRIMARY KEY CLUSTERED 
+(
+	[Code] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[priceTypes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[priceTypes](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[TypeId] [nvarchar](20) NULL,
+	[TypeName] [nvarchar](50) NULL,
+ CONSTRAINT [PK_priceTypes] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[PrinterSettings]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[PrinterSettings](
+	[Inv_Id] [int] NULL,
+	[PrintName] [nvarchar](50) NULL,
+	[Printer] [nvarchar](50) NULL,
+	[RptUrl] [nvarchar](max) NULL,
+	[RptName] [nvarchar](50) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ProductStocks]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ProductStocks](
+	[ProductId] [int] NOT NULL,
+	[BranchId] [int] NOT NULL,
+	[InventoryId] [int] NOT NULL,
+	[UnitId] [int] NOT NULL,
+	[Quantity] [real] NOT NULL,
+	[AvrgCost] [real] NOT NULL,
+	[LastUpdate] [datetime] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Receipts]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Receipts](
+	[AutoID] [int] IDENTITY(1,1) NOT NULL,
+	[GlobalID] [nvarchar](50) NOT NULL,
+	[ReceiptNo] [int] NOT NULL,
+	[ReceiptDate] [datetime] NULL,
+	[EmpId] [int] NULL,
+	[ClientID] [int] NULL,
+	[CreditAcc] [nvarchar](50) NULL,
+	[DebitAcc] [nvarchar](50) NULL,
+	[Payment] [float] NULL,
+	[VAT] [float] NULL,
+	[NetVal] [float] NULL,
+	[ReceiptType] [int] NULL,
+	[PaymentType] [int] NULL,
+	[BankId] [int] NULL,
+	[TreasuryID] [int] NULL,
+	[SalesManID] [int] NULL,
+	[CheckNo] [nvarchar](50) NULL,
+	[CheckDate] [datetime] NULL,
+	[Checkbank] [nvarchar](100) NULL,
+	[CheckState] [int] NULL,
+	[State] [int] NULL,
+	[Notes] [nvarchar](500) NULL,
+	[EntryGlobalID] [nvarchar](50) NULL,
+	[BranchID] [int] NULL,
+	[ISDeleted] [bit] NULL,
+	[Cccode] [nvarchar](50) NULL,
+	[ReffNo] [nvarchar](50) NULL,
+	[Reffdate] [datetime] NULL,
+	[Sync] [bit] NULL,
+	[MobPOSID] [nvarchar](50) NULL,
+	[Recipient] [nvarchar](500) NULL,
+ CONSTRAINT [PK_Receipt] PRIMARY KEY CLUSTERED 
+(
+	[GlobalID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Rekaba]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Rekaba](
+	[curr_id] [int] NULL,
+	[chk] [bit] NULL,
+	[val] [float] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Religions]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Religions](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Religions] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[RentInvoice]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[RentInvoice](
+	[proc_id] [int] IDENTITY(1,1) NOT NULL,
+	[proc_type] [int] NULL,
+	[id] [int] NULL,
+	[date] [datetime] NULL,
+	[stock] [int] NULL,
+	[MarineId] [int] NULL,
+	[GroupId] [int] NULL,
+	[cust_id] [int] NULL,
+	[sales_emp] [int] NULL,
+	[tot_Rent] [float] NULL,
+	[tot_Additions] [float] NULL,
+	[Insurance] [float] NULL,
+	[tot_net] [float] NULL,
+	[RentPeriod] [float] NULL,
+	[Restraction_id] [int] NULL,
+	[branch] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[Discount] [float] NULL,
+	[paid] [float] NULL,
+	[tax] [float] NULL,
+	[pay_type] [int] NULL,
+	[bank] [int] NULL,
+	[cash] [float] NULL,
+	[visa] [float] NULL,
+	[Companions] [int] NULL,
+	[note] [nvarchar](max) NULL,
+	[Reff_No] [varchar](20) NULL,
+	[Reff_date] [datetime] NULL,
+ CONSTRAINT [PK_RentInvoice] PRIMARY KEY CLUSTERED 
+(
+	[proc_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[RentPeriod]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[RentPeriod](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](100) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[RentPeriodSub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[RentPeriodSub](
+	[MGroupID] [int] NULL,
+	[code] [nvarchar](50) NULL,
+	[periodID] [int] NULL,
+	[offer] [int] NULL,
+	[rent] [float] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Safe_Emps]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Safe_Emps](
+	[safe_id] [int] NULL,
+	[emp_id] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SafesAdjust]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SafesAdjust](
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[safe] [int] NULL,
+	[EmpId] [int] NULL,
+	[branch] [int] NULL,
+	[Is_Approved] [bit] NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_SafesAdjust] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SafesAdjust_Sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SafesAdjust_Sub](
+	[Adjust_id] [int] NULL,
+	[ItemId] [int] NULL,
+	[unit] [int] NULL,
+	[InQuant] [float] NULL,
+	[OutQuant] [float] NULL,
+	[CurrentStock] [float] NULL,
+	[RealStock] [float] NULL,
+	[Price] [float] NULL,
+	[Note] [varchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SafesTransfer]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SafesTransfer](
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[safe_from] [int] NULL,
+	[safe_to] [int] NULL,
+	[branch] [int] NULL,
+	[IsReceived] [bit] NULL,
+	[IsSent] [bit] NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_SafesTransfer] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SafesTransfer_Sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SafesTransfer_Sub](
+	[transfer_id] [int] NULL,
+	[ItemId] [int] NULL,
+	[value] [float] NULL,
+	[user_emp] [int] NULL,
+	[ReceivedValue] [int] NULL,
+	[unit] [int] NULL,
+	[unitPercnt] [float] NULL,
+	[AvrgCost] [float] NULL,
+	[Diff] [int] NULL,
+	[IsReceived] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Salary_Pay]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Salary_Pay](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[date] [datetime] NULL,
+	[resp_emp] [int] NULL,
+	[month] [int] NULL,
+	[year] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_Salary_Pay] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Salary_Pay_Sub]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Salary_Pay_Sub](
+	[doc_id] [int] NULL,
+	[emp_no] [int] NULL,
+	[tot_salary] [float] NULL,
+	[salary_add] [float] NULL,
+	[salary_sub] [float] NULL,
+	[salary_val] [float] NULL,
+	[notes] [nvarchar](500) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Salary_Res]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Salary_Res](
+	[id] [int] NOT NULL,
+	[GlobalID] [nvarchar](50) NULL,
+	[date] [datetime] NULL,
+	[EntryGlobalID] [nvarchar](50) NULL,
+	[Notes] [nvarchar](1000) NULL,
+	[Branch] [int] NULL,
+	[month] [int] NULL,
+	[year] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_Salary_Resw] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Salary_Res_Details]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Salary_Res_Details](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[res_emp] [int] NULL,
+	[Basic] [float] NULL,
+	[Houses] [float] NULL,
+	[Travel] [float] NULL,
+	[sal_add] [float] NULL,
+	[sal_sub] [float] NULL,
+	[Net] [float] NULL,
+	[GlobalID] [nvarchar](50) NULL,
+ CONSTRAINT [PK_Salary_ResD] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SalaryAddSubTypes]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SalaryAddSubTypes](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[ISAdd] [bit] NULL,
+ CONSTRAINT [PK_SalaryAddSubTypes] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SalaryPay]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SalaryPay](
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[month] [int] NULL,
+	[year] [int] NULL,
+	[branch] [int] NULL,
+	[emp] [int] NULL,
+	[tot_salary] [float] NULL,
+	[salary_add] [float] NULL,
+	[salary_sub] [float] NULL,
+	[salary_net] [float] NULL,
+	[emp_resp] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[IS_Deleted] [bit] NULL,
+	[Houses] [float] NULL,
+	[EntryGlobalID] [nvarchar](50) NULL,
+	[Travel] [float] NULL,
+	[ResGlobalID] [nvarchar](50) NULL,
+ CONSTRAINT [PK_SalaryPay] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[salesmen]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[salesmen](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[comm] [decimal](18, 2) NULL,
+	[tel] [nvarchar](50) NULL,
+	[mobile] [nvarchar](50) NULL,
+	[email] [nvarchar](50) NULL,
+	[notes] [nvarchar](500) NULL,
+	[Profit_Comm] [decimal](18, 2) NULL,
+	[Colle_Comm] [decimal](18, 2) NULL,
+	[IS_Deleted] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Salla_Export_Log]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Salla_Export_Log](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[ItemId] [int] NOT NULL,
+	[SallaProductId] [bigint] NULL,
+	[ActionType] [nvarchar](20) NULL,
+	[ActionStatus] [nvarchar](20) NULL,
+	[RequestData] [nvarchar](max) NULL,
+	[ResponseData] [nvarchar](max) NULL,
+	[ErrorMessage] [nvarchar](max) NULL,
+	[ActionDate] [datetime] NULL,
+	[ActionBy] [nvarchar](100) NULL,
+	[Duration] [int] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SallaSettings]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SallaSettings](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[StoreName] [nvarchar](100) NULL,
+	[AppId] [nvarchar](50) NULL,
+	[ClientId] [nvarchar](100) NULL,
+	[ClientSecret] [nvarchar](100) NULL,
+	[RedirectUri] [nvarchar](255) NULL,
+	[MerchantId] [int] NULL,
+	[IsActive] [bit] NULL,
+	[store] [int] NULL,
+	[AutoInv] [bit] NULL,
+	[LastTokenRefresh] [datetime] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SandD]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SandD](
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[emp_id] [int] NULL,
+	[cust_id] [int] NULL,
+	[val] [float] NULL,
+	[type] [int] NULL,
+	[safe_bank_id] [int] NULL,
+	[sales_emp] [int] NULL,
+	[check_no] [nvarchar](50) NULL,
+	[check_date] [datetime] NULL,
+	[checkbank] [nvarchar](100) NULL,
+	[check_state] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[rest_id] [int] NULL,
+	[branch] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[Cccode] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SandQ]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SandQ](
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[cust_id] [int] NULL,
+	[val] [float] NULL,
+	[type] [int] NULL,
+	[safe_bank_id] [int] NULL,
+	[sales_emp] [int] NULL,
+	[check_no] [nvarchar](50) NULL,
+	[check_date] [datetime] NULL,
+	[checkbank] [nvarchar](100) NULL,
+	[check_state] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[rest_id] [int] NULL,
+	[branch] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[Cccode] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SandQD]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SandQD](
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[emp_person] [int] NULL,
+	[cust_id] [int] NULL,
+	[acc_code] [int] NULL,
+	[val] [float] NULL,
+	[type] [int] NULL,
+	[safe_bank_id] [int] NULL,
+	[sales_emp] [int] NULL,
+	[check_no] [nvarchar](50) NULL,
+	[check_date] [datetime] NULL,
+	[checkbank] [nvarchar](100) NULL,
+	[check_state] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[rest_id] [int] NULL,
+	[branch] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[Cccode] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SandSD]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SandSD](
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[emp_person] [int] NULL,
+	[emp_id] [int] NULL,
+	[acc_code] [int] NULL,
+	[val] [float] NULL,
+	[type] [int] NULL,
+	[safe_bank_id] [int] NULL,
+	[sales_emp] [int] NULL,
+	[check_no] [nvarchar](50) NULL,
+	[check_date] [datetime] NULL,
+	[checkbank] [nvarchar](100) NULL,
+	[check_state] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[rest_id] [int] NULL,
+	[branch] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[Cccode] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SandVAT]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SandVAT](
+	[id] [int] NOT NULL,
+	[date] [datetime] NULL,
+	[Supplier] [int] NULL,
+	[emp_id] [int] NULL,
+	[acc_code] [int] NULL,
+	[val] [float] NULL,
+	[VAT] [float] NULL,
+	[NetVal] [float] NULL,
+	[type] [int] NULL,
+	[safe_bank_id] [int] NULL,
+	[sales_emp] [int] NULL,
+	[check_no] [nvarchar](50) NULL,
+	[check_date] [datetime] NULL,
+	[checkbank] [nvarchar](100) NULL,
+	[check_state] [int] NULL,
+	[notes] [nvarchar](500) NULL,
+	[rest_id] [int] NULL,
+	[branch] [int] NULL,
+	[IS_Deleted] [bit] NULL,
+	[Reff_No] [int] NULL,
+	[Reff_date] [datetime] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[sett]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[sett](
+	[id] [int] NULL,
+	[val] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingBarcode]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingBarcode](
+	[id] [int] NOT NULL,
+	[Width] [float] NULL,
+	[Height] [float] NULL,
+	[MoveHerz] [float] NULL,
+	[MoveVerti] [float] NULL,
+	[FontSize] [int] NULL,
+	[FontStyle] [bit] NULL,
+	[BarcodePrinter] [nvarchar](50) NULL,
+	[PriceInclTax] [bit] NULL,
+	[PrintItemName] [bit] NULL,
+	[Printfoundation] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingCloseShift]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingCloseShift](
+	[PrintTotItem] [bit] NULL,
+	[PrintTotGroup] [bit] NULL,
+	[SendEmail] [bit] NULL,
+	[POS] [bit] NULL,
+	[SaleInv] [bit] NULL,
+	[PurchaseInv] [bit] NULL,
+	[Expenses] [bit] NULL,
+	[Receipts] [bit] NULL,
+	[BalanceRequired] [bit] NULL,
+	[UserID] [int] NULL,
+	[printNo] [int] NULL,
+	[ShowCloseDetails] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingDisplay]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingDisplay](
+	[user_id] [int] NULL,
+	[FontName] [nvarchar](50) NULL,
+	[FontSize] [nvarchar](50) NULL,
+	[FontStyle] [nvarchar](50) NULL,
+	[FontColor] [int] NULL,
+	[BackColor] [int] NULL,
+	[ActiveSett] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingDisplayCotrl]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingDisplayCotrl](
+	[Inv_id] [int] NULL,
+	[discountVal] [bit] NULL,
+	[discountPer] [bit] NULL,
+	[editinsurance] [bit] NULL,
+	[delivery] [bit] NULL,
+	[Editdelivery] [bit] NULL,
+	[insurance] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingEmail]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingEmail](
+	[Branch_Id] [int] NOT NULL,
+	[ActiveAuto] [bit] NULL,
+	[ServerName] [nvarchar](50) NULL,
+	[SendEmail] [nvarchar](50) NULL,
+	[RecEmail] [nvarchar](50) NULL,
+	[SendPWd] [nvarchar](50) NULL,
+	[port] [int] NULL,
+	[SSL] [bit] NULL,
+	[bodyMsg] [nvarchar](max) NULL,
+	[SendInv] [bit] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingFingurePrint]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingFingurePrint](
+	[Branch_Id] [int] NOT NULL,
+	[ConnectAuto] [bit] NULL,
+	[DeviceIP] [nvarchar](50) NULL,
+	[Port] [nvarchar](50) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingGeneral]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingGeneral](
+	[Inv_Id] [int] NOT NULL,
+	[AutoCheck] [bit] NULL,
+	[TouchCheck] [bit] NULL,
+	[unit] [int] NULL,
+	[Treasury] [int] NULL,
+	[DeliveryVal] [int] NULL,
+	[InsureVal] [int] NULL,
+	[PriceIncVAT] [bit] NULL,
+	[MainVAT] [float] NULL,
+	[SaleByMinus] [bit] NULL,
+	[CostType] [int] NULL,
+	[Store] [int] NULL,
+	[ShowPayForm] [bit] NULL,
+	[HasEntry] [bit] NULL,
+	[Pricing] [int] NULL,
+	[Currency] [int] NULL,
+	[VATCode] [nvarchar](30) NULL,
+	[ItemsAcc] [nvarchar](30) NULL,
+	[ReturnItemsAcc] [nvarchar](30) NULL,
+	[DiscountAcc] [nvarchar](30) NULL,
+	[InsureAcc] [nvarchar](30) NULL,
+	[DeliveryAcc] [nvarchar](30) NULL,
+	[StoreAcc] [nvarchar](30) NULL,
+	[SyncInv] [bit] NULL,
+	[SyncEntry] [bit] NULL,
+	[LinkedReturn] [bit] NULL,
+	[UnLinkedReturn] [bit] NULL,
+	[ShowPayfrmReturn] [bit] NULL,
+	[AdditionalTax] [float] NULL,
+	[DigitsNo] [int] NULL,
+	[ProcessFlow] [bit] NULL,
+	[PaymentStatus] [bit] NULL,
+	[InvoiceCode] [varchar](10) NULL,
+	[SaleManIsRequire] [bit] NULL,
+	[OperInvSale] [bit] NULL,
+	[DefaultCust] [int] NULL,
+	[CloudSerial] [nvarchar](50) NULL,
+	[ReInvCloudSerial] [nvarchar](50) NULL,
+	[CashCustRequire] [bit] NULL,
+	[DetailedItemEntry] [bit] NULL,
+	[PayTypeDefault] [int] NULL,
+	[prefixe] [int] NULL,
+	[AtiveCustMeasur] [bit] NULL,
+	[CustMobileRequire] [bit] NOT NULL,
+	[Bypassinvposting] [bit] NOT NULL,
+	[spareparts] [bit] NOT NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Settingmqtt]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Settingmqtt](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[clientid] [nvarchar](50) NULL,
+	[nodeid] [nvarchar](50) NULL,
+	[frequency] [nvarchar](50) NULL,
+	[sale] [nvarchar](50) NULL,
+	[receipt] [nvarchar](50) NULL,
+	[income] [nvarchar](50) NULL,
+	[finance] [nvarchar](50) NULL,
+	[passcode] [nvarchar](50) NULL,
+	[servername] [nvarchar](50) NULL,
+	[usrname] [nvarchar](50) NULL,
+	[pwd] [nvarchar](50) NULL,
+	[DB] [nvarchar](50) NULL,
+	[publickey] [nvarchar](50) NULL,
+	[privatekey] [nvarchar](50) NULL,
+	[IS_Play] [bit] NULL,
+	[inventory] [nvarchar](50) NULL,
+	[is_active] [bit] NULL,
+	[BranchId] [int] NULL,
+	[IpServer] [nvarchar](50) NULL,
+	[syncItems] [bit] NULL,
+	[syncOper] [bit] NULL,
+	[syncDefinitions] [bit] NULL,
+ CONSTRAINT [PK_Settingmqtt] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingNeoleap]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingNeoleap](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[IsNeoLeapActive] [bit] NULL,
+	[NeoLeapPort] [int] NULL,
+	[neoleaptoken] [nvarchar](max) NULL,
+	[NeoLeapEnableReceiptPrint] [bit] NULL,
+	[license] [nvarchar](max) NULL,
+ CONSTRAINT [PK_SettingNeoleap] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingNotify]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingNotify](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[clientid] [nvarchar](50) NULL,
+	[nodeid] [nvarchar](50) NULL,
+	[frequency] [nvarchar](50) NULL,
+	[sale] [nvarchar](50) NULL,
+	[receipt] [nvarchar](50) NULL,
+	[income] [nvarchar](50) NULL,
+	[finance] [nvarchar](50) NULL,
+	[passcode] [nvarchar](50) NULL,
+	[servername] [nvarchar](50) NULL,
+	[usrname] [nvarchar](50) NULL,
+	[pwd] [nvarchar](50) NULL,
+	[DB] [nvarchar](50) NULL,
+	[publickey] [nvarchar](50) NULL,
+	[privatekey] [nvarchar](50) NULL,
+	[IS_Play] [bit] NULL,
+	[inventory] [nvarchar](50) NULL,
+	[is_active] [bit] NULL,
+ CONSTRAINT [PK_SettingNotify] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingOrderMethods]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingOrderMethods](
+	[Inv_id] [int] NULL,
+	[local] [bit] NULL,
+	[takeaway] [bit] NULL,
+	[family] [bit] NULL,
+	[car] [bit] NULL,
+	[table] [bit] NULL,
+	[hosting] [bit] NULL,
+	[DefaultOrderType] [nvarchar](50) NULL,
+	[SystemTables] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingPayForm]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingPayForm](
+	[Inv_id] [int] NULL,
+	[ShowCoinImg] [bit] NULL,
+	[ShowCoinValue] [bit] NULL,
+	[ShowCoinPnl] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingPayMethods]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingPayMethods](
+	[Inv_id] [int] NULL,
+	[PayCash] [bit] NULL,
+	[PayPostpone] [bit] NULL,
+	[cash] [bit] NULL,
+	[network] [bit] NULL,
+	[visa] [bit] NULL,
+	[multi] [bit] NULL,
+	[ATM] [bit] NULL,
+	[CreditMulti] [bit] NULL,
+	[Bank] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingPrint]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingPrint](
+	[Inv_Id] [int] NOT NULL,
+	[PrintTotItem] [bit] NULL,
+	[PrintTotGroup] [bit] NULL,
+	[PrintHeader] [bit] NULL,
+	[PrintFooter] [bit] NULL,
+	[PrintStamp] [bit] NULL,
+	[HeaderImage] [image] NULL,
+	[FooterImage] [image] NULL,
+	[StampImage] [image] NULL,
+	[printNo] [int] NULL,
+	[printType] [int] NULL,
+	[CasherPrinter] [nvarchar](50) NULL,
+	[Kitchenprinter] [nvarchar](50) NULL,
+	[RptName] [nvarchar](50) NULL,
+	[RptUrl] [nvarchar](max) NULL,
+	[note] [nvarchar](max) NULL,
+	[PrintItemType] [int] NULL,
+	[PrintComponentsItemsIndividually] [bit] NULL,
+	[printmakpay] [bit] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingScale]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingScale](
+	[ScaleCode] [int] NULL,
+	[ScaleCodeDigits] [int] NULL,
+	[ItemCodeDigits] [int] NULL,
+	[ValueDigits] [int] NULL,
+	[DecimlDigits] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingsPOSDisplay]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingsPOSDisplay](
+	[Inv_id] [int] NULL,
+	[ShowGrps] [bit] NULL,
+	[ShowItemsPage] [bit] NULL,
+	[GrpsColmNo] [int] NULL,
+	[GrpRowsNo] [int] NULL,
+	[ItemsColNo] [int] NULL,
+	[ItemsRowsNo] [int] NULL,
+	[AddSaleman] [bit] NULL,
+	[ItemImages] [bit] NULL,
+	[CatogryImages] [bit] NULL,
+	[DisplayPrice] [bit] NULL,
+	[COMPort] [nchar](50) NULL,
+	[IsDigitalDisplay] [bit] NULL,
+	[RepeatItem] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingSync]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingSync](
+	[Id] [int] NOT NULL,
+	[ClientCode] [nvarchar](100) NULL,
+	[APIUrl] [nvarchar](100) NULL,
+	[UserName] [nvarchar](50) NULL,
+	[Password] [nvarchar](50) NULL,
+	[BranchId] [int] NULL,
+	[BranchType] [int] NULL,
+	[SyncType] [int] NULL,
+	[EmpId] [int] NULL,
+	[ReadingInterval] [float] NULL,
+	[PostInterval] [float] NULL,
+	[DistBranch] [int] NULL,
+	[CardsLastSync] [datetime] NULL,
+	[SyncQuantity] [bit] NULL,
+	[InvoicesLastSync] [datetime] NULL,
+	[InvCountToSync] [int] NULL,
+	[SyncCloudFirst] [bit] NULL,
+	[BranchSpecialSalePrice] [bit] NULL,
+	[StartDate] [datetime] NULL,
+	[EndDate] [datetime] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SettingZatca]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SettingZatca](
+	[ID] [int] NULL,
+	[filePath] [nvarchar](max) NULL,
+	[isProduction] [bit] NULL,
+	[IsActive] [bit] NULL,
+	[SyncManual] [bit] NULL,
+	[IsSimulation] [bit] NULL,
+	[StartDate] [datetime] NULL,
+	[EndDate] [datetime] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[States]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[States](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+ CONSTRAINT [PK_States] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Stock_Emps]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Stock_Emps](
+	[stock_id] [int] NULL,
+	[emp_id] [int] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Stocks]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Stocks](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[Acc_Code] [int] NULL,
+	[branch] [int] NULL,
+	[status] [int] NULL,
+	[IS_Default] [bit] NULL,
+	[notes] [nvarchar](500) NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_Stocks] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Suppliers]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Suppliers](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](100) NULL,
+	[taxNo] [nvarchar](20) NULL,
+	[IS_Deleted] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Switchboard Items]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Switchboard Items](
+	[s_Generation] [int] NULL,
+	[s_Lineage] [image] NULL,
+	[s_GUID] [uniqueidentifier] NULL,
+	[SwitchboardID] [int] NULL,
+	[ItemNumber] [smallint] NULL,
+	[ItemText] [nvarchar](255) NULL,
+	[Command] [smallint] NULL,
+	[Argument] [nvarchar](50) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Switchboard Items11]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Switchboard Items11](
+	[s_Generation] [int] NULL,
+	[s_Lineage] [image] NULL,
+	[s_GUID] [uniqueidentifier] NULL,
+	[SwitchboardID] [int] NULL,
+	[ItemNumber] [smallint] NULL,
+	[ItemText] [nvarchar](255) NULL,
+	[Command] [smallint] NULL,
+	[Argument] [nvarchar](50) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SyncEntities]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SyncEntities](
+	[EntityName] [nvarchar](50) NULL,
+	[LocalTable] [nvarchar](50) NULL,
+	[LastSyncId] [bigint] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Table_2]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Table_2](
+	[id] [int] NULL,
+	[رقم امر العمل] [int] NULL,
+	[الحاله] [nchar](10) NULL,
+	[ت الاستلام] [date] NULL,
+	[مده التنفيذ] [int] NULL,
+	[رقم المحطه] [int] NULL,
+	[التاريخ] [date] NULL,
+	[طول الحفريه] [decimal](18, 0) NULL,
+	[نوع الحفريه] [nvarchar](max) NULL,
+	[المشترك] [nvarchar](max) NULL,
+	[الحي] [nvarchar](max) NULL,
+	[البلديه] [nvarchar](max) NULL,
+	[المنطه] [nchar](10) NULL,
+	[ت التنسيق] [date] NULL,
+	[الملاحظات] [nvarchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Table_Order]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Table_Order](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[InvGlobalID] [nvarchar](50) NULL,
+	[ItemId] [int] NULL,
+	[IsNew] [bit] NULL,
+ CONSTRAINT [PK_Table_Order] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Tables]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Tables](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[TableName] [nvarchar](120) NULL,
+	[Cat_ID] [int] NULL,
+	[Status] [bit] NULL,
+	[Balance] [decimal](18, 2) NULL,
+	[InvGlobalID] [nvarchar](150) NULL,
+ CONSTRAINT [PK_Tables] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[tax_groups]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[tax_groups](
+	[id] [int] NULL,
+	[nameAR] [nvarchar](100) NULL,
+	[nameEN] [nvarchar](100) NULL,
+	[value] [float] NULL,
+	[valueHaveTax] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[treasury]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[treasury](
+	[id] [int] NOT NULL,
+	[name] [nvarchar](50) NULL,
+	[type] [int] NULL,
+ CONSTRAINT [PK_treasury] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[try]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[try](
+	[id] [int] NULL,
+	[txtone] [nchar](10) NULL,
+	[txttwo] [nchar](10) NULL,
+	[txtthree] [nchar](10) NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[User_Permissions]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[User_Permissions](
+	[user_id] [int] NULL,
+	[Form_id] [int] NULL,
+	[IS_New] [bit] NULL,
+	[IS_Save] [bit] NULL,
+	[IS_Delete] [bit] NULL,
+	[IS_Search] [bit] NULL,
+	[IS_Print] [bit] NULL,
+	[IS_Edit] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Users]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Users](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[emp] [int] NOT NULL,
+	[username] [nvarchar](50) NULL,
+	[pwd] [nvarchar](50) NULL,
+	[IS_Deleted] [bit] NULL,
+	[SecureCode] [int] NULL,
+	[LoginSecode] [bit] NULL,
+ CONSTRAINT [PK_Users_1] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[VATClients]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[VATClients](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[name] [nvarchar](100) NULL,
+	[taxNo] [nvarchar](20) NULL,
+	[IS_Deleted] [bit] NULL
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Violation]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Violation](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[MarineId] [int] NULL,
+	[Vdate] [datetime] NULL,
+	[Period] [float] NULL,
+	[status] [bit] NULL,
+	[ViolatType] [nvarchar](20) NULL,
+	[notes] [nvarchar](500) NULL,
+	[IsDeleted] [bit] NULL,
+ CONSTRAINT [PK_Violation] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Year_Previews]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Year_Previews](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[Dbname] [nvarchar](150) NULL,
+	[DbAutoName] [nvarchar](350) NULL,
+	[IS_Deleted] [bit] NULL,
+ CONSTRAINT [PK_Year_Previews] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ZatcaCredential]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ZatcaCredential](
+	[ID] [int] NULL,
+	[CSR] [nvarchar](max) NULL,
+	[PrivateKey] [nvarchar](max) NULL,
+	[CSID] [nvarchar](max) NULL,
+	[Secret] [nvarchar](max) NULL,
+	[RequestID] [nvarchar](100) NULL,
+	[P_RequestID] [nvarchar](100) NULL,
+	[P_CSID] [nvarchar](max) NULL,
+	[P_Secret] [nvarchar](max) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ZatcaEncodedInvoice]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ZatcaEncodedInvoice](
+	[Id] [int] NULL,
+	[InvGlobalID] [nvarchar](50) NULL,
+	[EncodedInvoice] [nvarchar](max) NULL,
+	[CreatedDate] [datetime] NULL,
+	[UUID] [nvarchar](200) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ZatcaResponse]    Script Date: 15/08/26 01:29:24 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ZatcaResponse](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[InvGlobalID] [nvarchar](20) NULL,
+	[Message] [nvarchar](max) NULL,
+	[Status] [nvarchar](50) NULL,
+ CONSTRAINT [PK_ZatcaResponse] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[AccountingPeriods] ADD  DEFAULT ((0)) FOR [IsClosed]
+GO
+ALTER TABLE [dbo].[AccountingPeriods] ADD  DEFAULT ((0)) FOR [IsActive]
+GO
+ALTER TABLE [dbo].[AccountingPeriods] ADD  DEFAULT (getdate()) FOR [CreatedDate]
+GO
+ALTER TABLE [dbo].[Additions] ADD  CONSTRAINT [DF_Additions_IsDeleted]  DEFAULT ((0)) FOR [IsDeleted]
+GO
+ALTER TABLE [dbo].[BackupSetting] ADD  CONSTRAINT [DF_BackupSetting_DeleteOld]  DEFAULT ((0)) FOR [DeleteOld]
+GO
+ALTER TABLE [dbo].[Booking] ADD  CONSTRAINT [DF_Booking_IsDeleted]  DEFAULT ((0)) FOR [IsDeleted]
+GO
+ALTER TABLE [dbo].[Branch_safes_salla] ADD  CONSTRAINT [DF_Branch_safes_salla_IsActive]  DEFAULT ((1)) FOR [IsActive]
+GO
+ALTER TABLE [dbo].[Branch_safes_salla] ADD  CONSTRAINT [DF_Branch_safes_salla_UpdatedAt]  DEFAULT (sysdatetime()) FOR [UpdatedAt]
+GO
+ALTER TABLE [dbo].[CahierClosedAndroid] ADD  CONSTRAINT [DF_CahierClosedAndroid_status]  DEFAULT ((0)) FOR [status]
+GO
+ALTER TABLE [dbo].[CloudPaytypeSetting] ADD  DEFAULT ((0)) FOR [BankId]
+GO
+ALTER TABLE [dbo].[CustomerMeasurements] ADD  DEFAULT (getdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[Customers] ADD  CONSTRAINT [DF_Customers_name]  DEFAULT ('عميل عام ') FOR [name]
+GO
+ALTER TABLE [dbo].[EmpSalaryAddSub] ADD  DEFAULT ((0)) FOR [SubFromSalary]
+GO
+ALTER TABLE [dbo].[Entry_sub] ADD  DEFAULT ((0)) FOR [salesman]
+GO
+ALTER TABLE [dbo].[EquipMakes] ADD  DEFAULT ((0)) FOR [IS_Deleted]
+GO
+ALTER TABLE [dbo].[EquipMakes] ADD  DEFAULT (getdate()) FOR [CreatedDate]
+GO
+ALTER TABLE [dbo].[EquipModels] ADD  DEFAULT ((0)) FOR [IS_Deleted]
+GO
+ALTER TABLE [dbo].[EquipModels] ADD  DEFAULT (getdate()) FOR [CreatedDate]
+GO
+ALTER TABLE [dbo].[Inv] ADD  CONSTRAINT [DF_Inv_cash]  DEFAULT ((0)) FOR [cash]
+GO
+ALTER TABLE [dbo].[Inv] ADD  CONSTRAINT [DF_Inv_visa]  DEFAULT ((0)) FOR [visa]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [ExtraVAT]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [PaymentStatus]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [AdditionalCost]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [InvoiceStatus]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT (getdate()) FOR [IssueDate]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [ItemsDiscount]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [InvCost]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [FreeVATSales]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [InvSum]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ((0)) FOR [VATPercent]
+GO
+ALTER TABLE [dbo].[Inv] ADD  DEFAULT ('SAR') FOR [CurrencyCode]
+GO
+ALTER TABLE [dbo].[Inv_Sub] ADD  DEFAULT ((0)) FOR [ItemAddedCost]
+GO
+ALTER TABLE [dbo].[ItemAlternativeCodes] ADD  DEFAULT ((0)) FOR [IS_Deleted]
+GO
+ALTER TABLE [dbo].[ItemAlternativeCodes] ADD  DEFAULT (getdate()) FOR [CreatedDate]
+GO
+ALTER TABLE [dbo].[ItemDetails] ADD  DEFAULT ((0)) FOR [IS_Deleted]
+GO
+ALTER TABLE [dbo].[ItemDetails] ADD  DEFAULT (getdate()) FOR [CreatedDate]
+GO
+ALTER TABLE [dbo].[Items_Salla_Sync] ADD  DEFAULT ('pending') FOR [ExportStatus]
+GO
+ALTER TABLE [dbo].[Items_Salla_Sync] ADD  DEFAULT ((0)) FOR [IsExported]
+GO
+ALTER TABLE [dbo].[Items_Salla_Sync] ADD  DEFAULT ((0)) FOR [RetryCount]
+GO
+ALTER TABLE [dbo].[ItemsCategory] ADD  CONSTRAINT [DF_itemsCategory_ShowInPurch]  DEFAULT ((0)) FOR [ShowInPurch]
+GO
+ALTER TABLE [dbo].[ItemsCategory] ADD  CONSTRAINT [DF_itemsCategory_ShowInSale]  DEFAULT ((0)) FOR [ShowInSale]
+GO
+ALTER TABLE [dbo].[ItemVehicleFitment] ADD  DEFAULT ((0)) FOR [IS_Deleted]
+GO
+ALTER TABLE [dbo].[ItemVehicleFitment] ADD  DEFAULT (getdate()) FOR [CreatedDate]
+GO
+ALTER TABLE [dbo].[OperationPlan] ADD  CONSTRAINT [DF_OperationPlan_IsDeleted]  DEFAULT ((0)) FOR [IsDeleted]
+GO
+ALTER TABLE [dbo].[PeriodLocks] ADD  DEFAULT ((0)) FOR [IsLocked]
+GO
+ALTER TABLE [dbo].[Salla_Export_Log] ADD  DEFAULT (getdate()) FOR [ActionDate]
+GO
+ALTER TABLE [dbo].[SallaSettings] ADD  DEFAULT ((0)) FOR [MerchantId]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  DEFAULT ((0)) FOR [AdditionalTax]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  DEFAULT ((2)) FOR [DigitsNo]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  DEFAULT ((0)) FOR [SaleManIsRequire]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  DEFAULT ((0)) FOR [OperInvSale]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  DEFAULT ((0)) FOR [DefaultCust]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  DEFAULT ((0)) FOR [AtiveCustMeasur]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  CONSTRAINT [DF_SettingGeneral_CustMobileRequire]  DEFAULT ((0)) FOR [CustMobileRequire]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  CONSTRAINT [DF_SettingGeneral_Bypassinvposting]  DEFAULT ((0)) FOR [Bypassinvposting]
+GO
+ALTER TABLE [dbo].[SettingGeneral] ADD  CONSTRAINT [DF_SettingGeneral_spareparts]  DEFAULT ((0)) FOR [spareparts]
+GO
+ALTER TABLE [dbo].[Settingmqtt] ADD  DEFAULT ((0)) FOR [syncItems]
+GO
+ALTER TABLE [dbo].[Settingmqtt] ADD  DEFAULT ((0)) FOR [syncOper]
+GO
+ALTER TABLE [dbo].[Settingmqtt] ADD  DEFAULT ((0)) FOR [syncDefinitions]
+GO
+ALTER TABLE [dbo].[SettingOrderMethods] ADD  DEFAULT ((0)) FOR [SystemTables]
+GO
+ALTER TABLE [dbo].[EquipModels]  WITH CHECK ADD  CONSTRAINT [FK_EquipModels_EquipMakes] FOREIGN KEY([make_id])
+REFERENCES [dbo].[EquipMakes] ([id])
+GO
+ALTER TABLE [dbo].[EquipModels] CHECK CONSTRAINT [FK_EquipModels_EquipMakes]
+GO
+ALTER TABLE [dbo].[ItemVehicleFitment]  WITH CHECK ADD  CONSTRAINT [FK_ItemVehicleFitment_Makes] FOREIGN KEY([MakeId])
+REFERENCES [dbo].[EquipMakes] ([id])
+GO
+ALTER TABLE [dbo].[ItemVehicleFitment] CHECK CONSTRAINT [FK_ItemVehicleFitment_Makes]
+GO
+ALTER TABLE [dbo].[ItemVehicleFitment]  WITH CHECK ADD  CONSTRAINT [FK_ItemVehicleFitment_Models] FOREIGN KEY([ModelId])
+REFERENCES [dbo].[EquipModels] ([id])
+GO
+ALTER TABLE [dbo].[ItemVehicleFitment] CHECK CONSTRAINT [FK_ItemVehicleFitment_Models]
+GO
+ALTER TABLE [dbo].[PeriodLocks]  WITH CHECK ADD FOREIGN KEY([PeriodID])
+REFERENCES [dbo].[AccountingPeriods] ([PeriodID])
+GO
+/****** Object:  StoredProcedure [dbo].[AddGdata]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[AddGdata]
+	-- Add the parameters for the stored procedure here
+@_machineNumber int,
+@_enrollNumber int,
+@_enrollMachineNumber int,
+@_verifyMode int,
+@_inOutMode int,
+@_year int,
+@_month int,
+@_day int,
+@_hour int,
+@_minute int,
+@takeJoureny int,
+@_statu bit
+
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+   insert into Attendance(_machineNumber,_enrollNumber,
+_enrollMachineNumber,_verifyMode,_inOutMode,_year,_month,_day,_hour,_minute,takeJoureny,_statu)values(@_machineNumber,@_enrollNumber,@_enrollMachineNumber,@_verifyMode,@_inOutMode,@_year,@_month,@_day,@_hour,@_minute,@takeJoureny,@_statu)
+
+END
+/****** Object:  StoredProcedure [dbo].[CalcItemStock]    Script Date: 5/25/2021 1:42:26 PM ******/
+SET ANSI_NULLS ON
+GO
+/****** Object:  StoredProcedure [dbo].[CalcItemStock]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[CalcItemStock]
+	@branch [int],
+	@Inventory [int],
+	@item [int],
+	@stock Float out
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+
+ set @stock = (select  sum(stockIn - stockOut) as ItemStock from (
+select ItemId,sum(val) as stockIn, 0 as stockOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and Inv_Sub.ItemId=@item and (@Inventory is null or  inv_sub.store =@Inventory) and (@branch is null or inv.branch=@branch) and inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, sum(val) as stockOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2  and Inv_Sub.ItemId=@item and (@Inventory is null or  inv_sub.store =@Inventory) and (@branch is null or inv.branch=@branch) and  inv.IS_Deleted=0 group by ItemId,inv_sub.store) as tb  )
+	if (@stock is null) set @stock=0
+END
+GO
+/****** Object:  StoredProcedure [dbo].[CalcItemStockAllBranches]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[CalcItemStockAllBranches]
+	@item [int],
+	@stock int out
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+
+ set @stock = (select  sum(stockIn - stockOut) as ItemStock from (
+select ItemId,sum(val) as stockIn, 0 as stockOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and Inv_Sub.ItemId=@item  and inv.IS_Deleted=0 group by ItemId
+union select ItemId,0 as stockIn, sum(val) as stockOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2  and Inv_Sub.ItemId=@item  and  inv.IS_Deleted=0 group by ItemId) as tb  )
+	if (@stock is null) set @stock=0
+END
+GO
+/****** Object:  StoredProcedure [dbo].[CalcProductStocks]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[CalcProductStocks]
+	@branch [int],
+	@Inventory [int],
+	@item [int],
+	@stock Float out
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+ set @stock = (select Quantity from ProductStocks where ProductId=@item and BranchId=@branch and UnitId=(select unit from Items where id=@item))   
+	if (@stock is null) set @stock=0
+END
+GO
+/****** Object:  StoredProcedure [dbo].[GetAccountStatement]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+Create PROCEDURE [dbo].[GetAccountStatement]
+    @ParentCode NVARCHAR(50),
+    @StartDate DATETIME,
+    @EndDate DATETIME,
+    @Branch NVARCHAR(50),
+    @ShowPreviousBalance BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- CTE to get account hierarchy
+    WITH AccountHierarchy AS (
+        SELECT 
+            Code,
+            AName,
+            Type,
+            ParentCode
+        FROM 
+            Accounts_Index
+        WHERE 
+            Code = @ParentCode
+        
+        UNION ALL
+        
+        SELECT 
+            a.Code,
+            a.AName,
+            a.Type,
+            a.ParentCode
+        FROM 
+            Accounts_Index a
+        INNER JOIN 
+            AccountHierarchy ah ON a.ParentCode = ah.Code
+    ),
+
+    -- CTE to calculate previous balance for child accounts
+    PreviousBalance AS (
+        SELECT 
+            @ParentCode AS Code,
+             SUM(es.dept) as PreviousDept,
+			 SUM(es.credit) AS PreviousCredit
+        FROM 
+            entry e
+        INNER JOIN 
+            entry_sub es ON e.GlobalID = es.EntryGlobalID
+        WHERE 
+            es.acc_no IN (SELECT Code FROM AccountHierarchy WHERE Type = 2)
+            AND e.is_Deleted = 0 -- Exclude deleted entries if needed
+            AND e.date < @StartDate
+            AND (@Branch IS NULL OR e.branch = @Branch)
+    ),
+
+    -- CTE to get the main statement
+    MainStatement AS (
+        SELECT 
+            ROW_NUMBER() OVER (ORDER BY e.date) AS DgvRank,
+            es.acc_no AS DgvAccCode, 
+            ah.AName AS DgvAccName,
+            e.doc_No AS DgvEntryNo, 
+            es.dept AS DgvDept, 
+            es.credit AS DgvCredit,
+            e.date AS DgvDate,
+            es.notes AS DgvNote,
+            es.EntryGlobalID AS DgvGenralNo,
+            b.name AS DgvBranch,
+			0 as DgvBalance,
+            '' DgvBalanceStatus,
+            et.Name AS DgvEntryType
+        FROM 
+            entry e
+        INNER JOIN 
+            entry_sub es ON e.GlobalID = es.EntryGlobalID
+        INNER JOIN 
+            AccountHierarchy ah ON es.acc_no = ah.Code
+		LEFT JOIN 
+            Branches b ON e.branch = b.BranchId
+			LEFT JOIN
+			EntryTypes et on e.type=et.Id 
+        WHERE 
+            es.acc_no IN (SELECT Code FROM AccountHierarchy)
+            AND e.is_Deleted = 0 -- Exclude deleted entries if needed
+            AND (@StartDate IS NULL OR e.date >= @StartDate)
+            AND (@EndDate IS NULL OR e.date <= @EndDate)
+            AND (@Branch IS NULL OR e.branch = @Branch)
+    )
+
+    -- Combine the previous balance with the main statement based on @ShowPreviousBalance
+    SELECT
+        DgvRank,
+        DgvAccCode,
+        DgvAccName,
+        DgvEntryNo,
+        DgvDept,
+        DgvCredit,
+        DgvDate,
+        DgvNote,
+        DgvGenralNo,
+        DgvBranch,
+        DgvBalance,
+        DgvBalanceStatus,
+        DgvEntryType
+    FROM (
+        -- Previous balance row
+        SELECT
+            0 AS DgvRank, -- Use -1 to ensure it appears first
+            pb.Code AS DgvAccCode,
+            ai.AName AS DgvAccName,
+            NULL AS DgvEntryNo,
+            pb.PreviousDept AS DgvDept,
+            pb.PreviousCredit AS DgvCredit,
+            @StartDate AS DgvDate,
+            'Previous Balance' AS DgvNote,
+            NULL AS DgvGenralNo,
+            NULL AS DgvBranch,
+            0 AS DgvBalance,
+		  'Previous Balance' DgvBalanceStatus,
+            'Previous Balance' AS DgvEntryType
+        FROM
+            PreviousBalance pb
+        INNER JOIN
+            Accounts_Index ai ON pb.Code = ai.Code
+        WHERE @ShowPreviousBalance = 1 
+
+        UNION ALL
+
+        -- Main statement rows
+        SELECT
+            ms.DgvRank,
+            ms.DgvAccCode,
+            ms.DgvAccName,
+            ms.DgvEntryNo,
+            ms.DgvDept,
+            ms.DgvCredit,
+            ms.DgvDate,
+            ms.DgvNote,
+            ms.DgvGenralNo,
+            ms.DgvBranch,
+            ms.DgvBalance,
+            ms.DgvBalanceStatus,
+            ms.DgvEntryType
+        FROM
+            MainStatement ms
+    ) AS CombinedResult
+    ORDER BY
+        DgvRank, DgvDate;
+END;
+GO
+/****** Object:  StoredProcedure [dbo].[GetSalesByCategory]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[GetSalesByCategory]
+	@branch  [int] ,
+	@inv_type  [int] ,
+	@StartDate  dateTime ,
+	@EndDate  dateTime 
+
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+select TOP 5 ItemsCategory.name as CategoryName,  ItemsCategory.CategoryID, sum(Sales) as TotalSales,sum(ReturnSales) as ReturnSales , sum(Sales-ReturnSales) as SaleNet  from
+(select  ItemId ,  sum(val1*exchange_price) as Sales ,0 as ReturnSales
+ from inv  left join inv_sub on inv.InvGlobalID =Inv_Sub.InvGlobalID   where (@branch is null or branch =@branch ) and (inv_type=@inv_type ) and inv.proc_type=1 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)group by ItemId 
+union
+ select   ItemId ,  0 as Sales ,sum(val1*exchange_price) as ReturnSales
+ from inv  left join inv_sub on inv.InvGlobalID =Inv_Sub.InvGlobalID  where (@branch is null or branch =@branch ) and (inv_type=@inv_type) and inv.proc_type=2 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)group by ItemId   ) as tb left join Items on Items.id= tb.ItemId left join ItemsCategory on Items.group_id= ItemsCategory.CategoryId  group by CategoryID, ItemsCategory.name  order by SaleNet desc
+ END
+GO
+/****** Object:  StoredProcedure [dbo].[GetSalesByItems]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[GetSalesByItems]
+	@branch  [int] ,
+	@inv_type  [int] ,
+	@StartDate  dateTime ,
+	@EndDate  dateTime 
+
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+select TOP 5  Name as ItemName, ItemId, sum(Sales) as TotalSales,sum(ReturnSales) as ReturnSales , sum(Sales-ReturnSales) as SaleNet  from
+(select  ItemId ,  sum(val*exchange_price) as Sales ,0 as ReturnSales
+ from inv  left join inv_sub on inv.InvGlobalID =Inv_Sub.InvGlobalID   where (@branch is null or branch =@branch ) and (inv_type=@inv_type  ) and inv.proc_type=1 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)group by ItemId 
+union select  ItemId ,  0 as Sales ,sum(val*exchange_price) as ReturnSales
+ from inv  left join inv_sub on inv.InvGlobalID =Inv_Sub.InvGlobalID  where (@branch is null or branch =@branch ) and (inv_type=@inv_type) and inv.proc_type=2 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)group by ItemId   
+ ) as tb left join Items on Items.id= tb.ItemId where ItemId Is Not Null group by ItemId,name  order   by TotalSales DESC 
+ END
+GO
+/****** Object:  StoredProcedure [dbo].[GetSalesByOrderType]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE   PROCEDURE [dbo].[GetSalesByOrderType]
+	@branch  [int] ,
+	@inv_type  [int] ,
+	@StartDate  dateTime ,
+	@EndDate  dateTime 
+
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+select '' as OrderTypeName, OrderTypeID, sum(Sales) as TotalSales,sum(ReturnSales) as ReturnSales , sum(Sales-ReturnSales) as SaleNet  from
+(select OrderType as OrderTypeID , count(*) as InvCount, sum(cash+visa) as Sales ,0 as ReturnSales
+from inv where (@branch is null or branch =@branch ) and (inv_type=2 or inv_type=3) and proc_type=1 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)group by OrderType
+union select OrderType as OrderTypeID , 0as InvCount, 0 as Sales ,sum(cash+visa) as ReturnSales
+from inv where (@branch is null or branch =@branch ) and (inv_type=2 or inv_type=3) and proc_type=2 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)group by OrderType   ) as tb group by OrderTypeID
+END
+GO
+/****** Object:  StoredProcedure [dbo].[GetSalesByPaymentMethods]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[GetSalesByPaymentMethods]
+	@branch  [int] ,
+	@inv_type  [int] ,
+	@StartDate  dateTime ,
+	@EndDate  dateTime 
+
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+select '' as PayMethod, PayTypeID, sum(Sales) as TotalSales,sum(ReturnSales) as ReturnSales , sum(Sales-ReturnSales) as SaleNet  from
+(select pay_type as PayTypeID , count(*) as InvCount,CASE 
+WHEN  pay_type = 1  THEN  sum(tot_net) 
+WHEN  pay_type = 2 THEN   sum(visa) 
+WHEN  pay_type = 4 THEN   sum(visa + cash)
+WHEN  pay_type = -1 THEN  sum(tot_net) 
+End as Sales ,0 as ReturnSales
+from inv where (@branch is null or branch =@branch ) and (inv_type=2 or inv_type=3) and proc_type=1 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)group by pay_type
+union select pay_type as PayTypeID , 0as InvCount, 0 as Sales ,CASE 
+WHEN  pay_type = 1  THEN  sum(tot_net) 
+WHEN  pay_type = 2 THEN   sum(visa) 
+WHEN  pay_type = 4 THEN   sum(visa + cash)
+WHEN  pay_type = -1 THEN  sum(tot_net) 
+End as ReturnSales
+from inv where (@branch is null or branch =@branch ) and (inv_type=2 or inv_type=3) and proc_type=2 and (@StartDate is null or date>=@StartDate)and (@EndDate is null or date<=@EndDate)group by pay_type   ) as tb group by PayTypeID
+END
+GO
+/****** Object:  StoredProcedure [dbo].[InventoryCost]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[InventoryCost]
+	@branch [int],
+	@date datetime,
+	@AvrgCost float out
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+	SET NOCOUNT ON;
+	set @AvrgCost = (select  sum(ItemAvrgCost * Stock) as AvrgCost from (
+select itemId,sum(ItemAvrgCost) as ItemAvrgCost,sum(Stock)as Stock from(
+select  ItemId as ItemId,((sum (ItemAvrgCostIn) - sum(ItemAvrgCostOut))+ sum(ItemDiscountIn) -sum(ItemDiscountOut))/NULLIF(sum(stockIn - stockOut), 0) as ItemAvrgCost,0 as Stock from (
+select ItemId,sum(val) as stockIn, 0 as stockOut ,0 as ItemDiscountIn,0 as ItemDiscountOut,sum(inv_sub.exchange_price*inv_sub.val1) as ItemAvrgCostIn ,0 as ItemAvrgCostOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1  and inv_sub.store is not null and inv.branch=@branch  and inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, sum(val)  as stockOut ,0 as ItemDiscountIn,0 as ItemDiscountOut, 0 as ItemAvrgCostIn ,sum(inv_sub.exchange_price*inv_sub.val1) as ItemAvrgCostOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2  and (inv_type=1  or inv_type= 9  or inv_type= 4 or inv_type= 8)  and inv_sub.store is not null and inv.branch=@branch  and inv.IS_Deleted=0 group by ItemId,inv_sub.store
+ union select ItemId,0 as stockIn, 0 as stockOut,( sum((((val1*exchange_price)-inv_sub.discount)/(NULLIF(InvTotal, 0)+ minus))* minus)+sum(inv_sub.discount)) as ItemDiscountIn,0 as ItemDiscountOut ,0 as ItemAvrgCostIn,0 as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2 and (inv_type=1  or inv_type= 9  or inv_type= 4 or inv_type= 8)   and inv_sub.store is not null and inv.branch=@branch and   inv.IS_Deleted=0 group by ItemId,inv_sub.store
+ union select ItemId,0 as stockIn, 0 as stockOut,0 as ItemDiscountIn ,( sum((((val1*exchange_price)-inv_sub.discount)/(NULLIF(InvTotal, 0)+ minus))* minus)+sum(inv_sub.discount)) as ItemDiscountOut,0 as ItemAvrgCostIn,0 as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and (inv_type=1  or inv_type= 9  or inv_type= 4 or inv_type= 8)   and inv_sub.store is not null and inv.branch=@branch and   inv.IS_Deleted=0 group by ItemId,inv_sub.store
+  ) as tb group by ItemId
+union select  itemId,0 as ItemAvrgCost, sum(stockIn - stockOut)as Stock from (select ItemId,sum(val) as stockIn, 0 as stockOut   from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and inv_sub.store is not null and inv.branch=@branch   and inv.IS_Deleted=0 group by ItemId,inv_sub.store 
+union select ItemId,0 as stockIn, sum(val) as stockOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2  and inv_sub.store is not null and inv.branch=@branch  and  inv.IS_Deleted=0 group by ItemId,inv_sub.store) as tb group by ItemId)as tb group by ItemId)as tb where Stock>0  )
+ 	if (@AvrgCost is null) set @AvrgCost=0
+	if (@AvrgCost <0) set @AvrgCost=0
+END
+GO
+/****** Object:  StoredProcedure [dbo].[InventoryCostByType]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+create PROCEDURE [dbo].[InventoryCostByType]
+	@branch [int],
+	@InvType [int],
+	@ProcType [int],
+	@StockCost float out
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+	SET NOCOUNT ON;
+	 set @StockCost = (select sum(val1*exchange_price) from inv,inv_sub where branch=@branch and inv.inv_type=@InvType and inv.proc_type=@ProcType and inv.InvGlobalId=inv_sub.InvGlobalId and  inv.IS_Deleted=0)
+ 	if (@StockCost is null) set @StockCost=0
+END
+GO
+/****** Object:  StoredProcedure [dbo].[InventoryCostForBalanceSheet]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[InventoryCostForBalanceSheet]
+	@branch [int],
+	@date datetime,
+	@AvrgCost float out
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+	SET NOCOUNT ON;
+	set @AvrgCost = ( select  ((sum (ItemAvrgCostIn) - sum(ItemAvrgCostOut))+ sum(ItemDiscountIn) -sum(ItemDiscountOut)) as ItemAvrgCost from (
+select ItemId,sum(val) as stockIn, 0 as stockOut ,0 as ItemDiscountIn,0 as ItemDiscountOut,sum(inv_sub.exchange_price*inv_sub.val1) as ItemAvrgCostIn ,0 as ItemAvrgCostOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and inv_type<> 9 and inv_sub.store is not null and inv.branch=@branch and Inv.date<=@date and  inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, sum(val) as stockOut,0 as ItemDiscountIn,0 as ItemDiscountOut,0 as ItemAvrgCostIn,sum(inv_sub.exchange_price*inv_sub.val1) as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2 and (inv_type=1 or inv_type= 4 or inv_type= 8) and inv_type<> 9  and inv_sub.store is not null and inv.branch=@branch and Inv.date<=@date and   inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, 0 as stockOut,( sum((((val1*exchange_price)-inv_sub.discount)/(NULLIF(InvTotal, 0)+ minus))* minus)+sum(inv_sub.discount)) as ItemDiscountIn,0 as ItemDiscountOut ,0 as ItemAvrgCostIn,0 as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2 and (inv_type=1    or inv_type= 4 or inv_type= 8)and inv_type<> 9  and  inv_sub.store is not null and inv.branch=@branch and Inv.date<=@date and   inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, 0 as stockOut,0 as ItemDiscountIn ,( sum((((val1*exchange_price)-inv_sub.discount)/(NULLIF(InvTotal, 0)+ minus))* minus)+sum(inv_sub.discount)) as ItemDiscountOut,0 as ItemAvrgCostIn,0 as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and (inv_type=1    or inv_type= 4 or inv_type= 8) and inv_type<> 9   and inv_sub.store is not null and inv.branch=@branch and Inv.date<=@date and   inv.IS_Deleted=0 group by ItemId,inv_sub.store) as tb  )
+ 	if (@AvrgCost is null) set @AvrgCost=0
+	if (@AvrgCost <0) set @AvrgCost=0
+END
+GO
+/****** Object:  StoredProcedure [dbo].[ItemAvrgCost]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[ItemAvrgCost]
+	@branch [int],
+	@item [int],
+	@store [int],
+	@ItemAvrgCost float out
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+		 set @ItemAvrgCost = (select  ((sum (ItemAvrgCostIn) - sum(ItemAvrgCostOut))+ sum(ItemDiscountIn) -sum(ItemDiscountOut))/NULLIF(sum(stockIn - stockOut), 0) as ItemAvrgCost from (
+ select ItemId,sum(val) as stockIn, 0 as stockOut ,0 as ItemDiscountIn,0 as ItemDiscountOut,sum(inv_sub.exchange_price*inv_sub.val1) as ItemAvrgCostIn ,0 as ItemAvrgCostOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1  and inv_sub.store is not null and inv.branch=@branch and Inv_Sub.ItemId=@item and (@store is null or Inv_Sub.store = @store) and inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, sum(val)  as stockOut ,0 as ItemDiscountIn,0 as ItemDiscountOut, 0 as ItemAvrgCostIn ,sum(inv_sub.exchange_price*inv_sub.val1) as ItemAvrgCostOut from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2  and (inv_type=1  or inv_type= 9  or inv_type= 4 or inv_type= 8)  and inv_sub.store is not null and inv.branch=@branch and Inv_Sub.ItemId=@item and (@store is null or Inv_Sub.store = @store) and inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, 0 as stockOut,( sum((((val1*exchange_price)-inv_sub.discount)/(NULLIF(InvTotal, 0)+ minus))* minus)+sum(inv_sub.discount)) as ItemDiscountIn,0 as ItemDiscountOut ,0 as ItemAvrgCostIn,0 as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=2 and (inv_type=1  or inv_type= 9  or inv_type= 4 or inv_type= 8) and Inv_Sub.ItemId=@item  and (@store is null or Inv_Sub.store = @store) and inv_sub.store is not null and inv.branch=@branch and   inv.IS_Deleted=0 group by ItemId,inv_sub.store
+union select ItemId,0 as stockIn, 0 as stockOut,0 as ItemDiscountIn ,( sum((((val1*exchange_price)-inv_sub.discount)/(NULLIF(InvTotal, 0)+ minus))* minus)+sum(inv_sub.discount)) as ItemDiscountOut,0 as ItemAvrgCostIn,0 as ItemAvrgCostOut  from inv left join  inv_sub on inv.InvGlobalId=inv_sub.InvGlobalId left join Items on inv_sub.ItemId= Items.id  where inv_sub.proc_type=1 and (inv_type=1  or inv_type= 9  or inv_type= 4 or inv_type= 8) and Inv_Sub.ItemId=@item and (@store is null or Inv_Sub.store = @store) and inv_sub.store is not null and inv.branch=@branch and   inv.IS_Deleted=0 group by ItemId,inv_sub.store) as tb    )
+	if (@ItemAvrgCost is null) set @ItemAvrgCost=0
+END
+GO
+/****** Object:  StoredProcedure [dbo].[MonthlySales]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[MonthlySales]
+	@branch  [int] ,
+	@inv_type  [int] ,
+	@pay_type  [int] ,
+	@Seller  [int] 
+WITH EXECUTE AS CALLER
+AS
+BEGIN
+select InvDate,InvYear,InvMonth , sum(InvCount) as InvCount,sum(InvReturnCount) as InvReturnCount ,sum(InvTotal)as InvTotal , sum(ReturnTotal) as ReturnTotal, sum(InvTotal-ReturnTotal) as SaleNet from
+(select  CONCAT(CAST(MONTH(date) AS VARCHAR(2)) , '-' , CAST(YEAR(date) AS VARCHAR(4))) as InvDate,0 as InvCount, sum(InvTotal) as InvTotal ,0 as InvReturnCount,0 as ReturnTotal,YEAR(date) as InvYear, month(date) as InvMonth
+from inv where (@branch is null or branch =@branch ) and (@inv_type is null or(inv_type=@inv_type or inv_type=@inv_type)) and proc_type=1 and IS_Deleted=0  group by year(date), month(date)
+union all
+select  CONCAT(CAST(MONTH(date) AS VARCHAR(2)) , '-' , CAST(YEAR(date) AS VARCHAR(4))) as InvDate ,0 as InvCount,0 as InvTotal, count(*) as InvReturnCount, sum(InvTotal) as ReturnTotal ,YEAR(date) as InvYear, month(date) as InvMonth
+from inv where (@branch is null or branch =@branch ) and (@inv_type is null or(inv_type=@inv_type or inv_type=@inv_type)) and proc_type=2 and IS_Deleted=0 group by year(date), month(date)) as tb group by InvDate,InvYear,InvMonth order by InvYear,InvMonth
+END
+GO
+/****** Object:  StoredProcedure [dbo].[proGetCategorySaleByDay]    Script Date: 15/08/26 01:29:25 ص ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[proGetCategorySaleByDay]
+    @branch INT,
+    @inv_type INT,
+    @StartDate DATE,
+    @EndDate DATE,
+	@CategoryID INT
+AS
+BEGIN
+    SELECT 
+        ItemsCategory.name AS CategoryName,
+        ItemsCategory.Code AS CtgyCode,
+        ItemsCategory.CategoryID,
+        SUM(Sales) AS Sales,
+        SUM(ReturnSales) AS ReturnSales,
+        SUM(Sales - ReturnSales) - SUM(InvoiceDiscount1 - InvoiceDiscount2) AS SaleNet,
+        InvDate
+    FROM
+    (
+        SELECT
+            ItemId ,  
+			SUM((val1 * exchange_price) - discount) as Sales 
+			,0 as ReturnSales,
+			SUM(round((exchange_price * minus  /InvSum),2)) InvoiceDiscount1,
+			0 InvoiceDiscount2,
+			CAST(inv.date AS DATE) as InvDate
+        FROM Inv_Sub
+        LEFT JOIN inv ON Inv_Sub.InvGlobalID = Inv.InvGlobalID
+        WHERE
+             Inv.IS_Deleted = 0
+			AND Inv_Sub.ProductId=0
+            AND (@branch IS NULL OR branch = @branch)
+            AND inv_type = @inv_type
+			AND  inv.proc_type=1
+            AND (@StartDate IS NULL OR date >= @StartDate)
+            AND (@EndDate IS NULL OR date <= @EndDate)
+        GROUP BY ItemId, inv.date
+        UNION ALL
+        SELECT
+           ItemId , 
+		   0 as Sales ,
+		   SUM((val1 * exchange_price) - discount) as ReturnSales,
+		   0 InvoiceDiscount1,
+		   SUM(round((exchange_price * minus  /InvSum),2)) InvoiceDiscount2,
+		   CAST(inv.date AS DATE) as InvDate
+         FROM Inv_Sub
+        LEFT JOIN inv ON Inv_Sub.InvGlobalID = Inv.InvGlobalID
+        WHERE
+             Inv.IS_Deleted = 0
+			 AND Inv_Sub.ProductId=0
+            AND (@branch IS NULL OR branch = @branch)
+            AND inv_type = @inv_type
+			AND  inv.proc_type=2
+            AND (@StartDate IS NULL OR date >= @StartDate)
+            AND (@EndDate IS NULL OR date <= @EndDate)
+        GROUP BY ItemId, inv.date
+    ) AS tb
+	
+    LEFT JOIN Items ON Items.id = tb.ItemId
+    LEFT JOIN ItemsCategory ON Items.group_id = ItemsCategory.CategoryId
+	where  (@CategoryID IS NULL OR ItemsCategory.CategoryID = @CategoryID)
+    GROUP BY CategoryID, ItemsCategory.name, ItemsCategory.Code, tb.InvDate
+    ORDER BY InvDate DESC;
+END
+GO

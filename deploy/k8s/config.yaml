@@ -1,0 +1,27 @@
+# الإعدادات غير السرّية. الأسرار في `erp-secrets` (انظر `secret.example.yaml`).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: erp-config
+  namespace: erp
+data:
+  NODE_ENV: production
+  PORT: '3000'
+  API_HOST: 0.0.0.0
+  # أسماء خدمات Kubernetes داخل العنقود.
+  REDIS_URL: redis://erp-redis:6379
+  MAIL_TRANSPORT: smtp
+  SMTP_HOST: erp-mailhog
+  SMTP_PORT: '1025'
+  SMTP_SECURE: 'false'
+  MAIL_FROM: 'ERP <no-reply@erp.example>'
+  WORKER: '1'
+  JOBS_ENABLED: '1'
+  CORS_ALLOWED_ORIGINS: https://erp.example,https://app.erp.example,https://platform.erp.example
+  PUBLIC_APP_URL: https://app.erp.example
+  STAFF_PUBLIC_URL: https://app.erp.example
+  MARKETING_PUBLIC_URL: https://erp.example
+  CONSOLE_PUBLIC_URL: https://platform.erp.example
+  CUSTOMER_PUBLIC_URL: https://portal.erp.example
+  # الواجهات: خادم Next يمرّر `/api/v1/*` إلى خدمة الـAPI داخل العنقود.
+  API_PROXY_TARGET: http://erp-api:3000

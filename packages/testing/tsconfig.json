@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    // Packages resolve their `@erp/*` siblings through the built `dist` output
+    // (node_modules → package.json "types"), never through the workspace `paths`
+    // map — that map points at `src` and would pull foreign sources under `rootDir`.
+    "paths": {}
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules", "src/**/*.spec.ts"]
+}

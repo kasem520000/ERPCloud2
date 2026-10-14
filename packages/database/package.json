@@ -1,0 +1,40 @@
+{
+  "name": "@erp/database",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@erp/config": "workspace:*",
+    "@erp/contracts": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.13.0",
+    "uuid": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.19.0",
+    "vitest": "^2.1.9"
+  },
+  "scripts": {
+    "lint": "eslint src drizzle.config.ts --config ../../eslint.config.mjs",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx src/cli/migrate.ts",
+    "migrate:down": "tsx src/cli/migrate-down.ts",
+    "roles": "tsx src/cli/roles.ts",
+    "studio": "drizzle-kit studio",
+    "seed:coa": "tsx src/cli/seed-coa.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

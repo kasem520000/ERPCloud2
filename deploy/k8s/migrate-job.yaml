@@ -1,0 +1,38 @@
+# ---------------------------------------------------------------------------
+# مهمّةٌ واحدة قبل إقلاع الـAPI: الأدوار (RLS) ← الترحيلات ← البذرة.
+# تُشغَّل يدوياً في كل إصدار:
+#   kubectl -n erp delete job erp-migrate --ignore-not-found && kubectl apply -f deploy/k8s/migrate-job.yaml
+# وفي GitOps (Argo CD/Flux) اجعلها `Sync hook` قبل الـDeployment.
+# ---------------------------------------------------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: erp-migrate
+  namespace: erp
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  # ٣٠ دقيقة كافية لأطول ترحيلٍ في هذا المستودع (79 ترحيلاً).
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels: { app: erp-migrate }
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: erp-api:latest
+          envFrom:
+            - configMapRef: { name: erp-config }
+            - secretRef: { name: erp-secrets }
+          env:
+            # البذرة في الإنتاج: `0` — بيانات العرض تُبذر في بيئة العرض وحدها.
+            - { name: SEED_DEMO, value: '0' }
+          command: ['/bin/sh', '-lc']
+          args:
+            - >-
+              pnpm --dir packages/database run roles &&
+              pnpm --dir packages/database run migrate &&
+              if [ "$SEED_DEMO" = "1" ]; then pnpm --dir apps/api run seed; fi

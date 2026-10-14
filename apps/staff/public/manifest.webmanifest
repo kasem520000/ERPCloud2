@@ -1,0 +1,16 @@
+{
+  "name": "ERPCloud Offline POS",
+  "short_name": "ERP POS",
+  "description": "Cash-only offline point of sale for ERPCloud",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/pos/offline",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "categories": ["business", "finance"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

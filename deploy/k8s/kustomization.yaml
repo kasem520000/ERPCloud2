@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# النشر على Kubernetes — طبقةٌ واحدة (Kustomize)
+#
+#   kubectl apply -k deploy/k8s
+#
+# الترتيب داخل المُجمَّع: الاسم والمساحة ← الإعدادات والأسرار ← البيانات (Postgres/Redis)
+# ← الترحيل والبذرة (Job) ← الـAPI ← الواجهات ← المدخل (Ingress).
+#
+# قبل التطبيق: انسخ `deploy/k8s/secret.example.yaml` إلى `secret.yaml` واملأ الأسرار، أو
+# أنشئ السرّ بالأمر:
+#   kubectl -n erp create secret generic erp-secrets \
+#     --from-literal=POSTGRES_PASSWORD=... --from-literal=JWT_PRIVATE_KEY="$(cat jwt.key)" ...
+#
+# الصور: `kustomization.yaml` يثبّت الوسوم في مكانٍ واحد — بدّله بوسم الإصدار لديك
+# (أو بصورة GHCR التي يبنيها `.github/workflows/release.yml`).
+# ---------------------------------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: erp
+
+resources:
+  - namespace.yaml
+  - config.yaml
+  - data.yaml
+  - migrate-job.yaml
+  - api.yaml
+  - web.yaml
+  - ingress.yaml
+
+# وسمٌ واحد لكل الصور: `kubectl apply -k deploy/k8s` بعد بناء الإصدار.
+images:
+  - name: erp-api
+    newName: ghcr.io/albaraaq/cloud-saas-erp-api
+    newTag: latest
+  - name: erp-marketing
+    newName: ghcr.io/albaraaq/cloud-saas-erp-marketing
+    newTag: latest
+  - name: erp-staff
+    newName: ghcr.io/albaraaq/cloud-saas-erp-staff
+    newTag: latest
+  - name: erp-platform-admin
+    newName: ghcr.io/albaraaq/cloud-saas-erp-platform-admin
+    newTag: latest
+
+# في الإنتاج: ثلاث نسخ للـAPI على الأقلّ، ونسختان لكل واجهة.
+replicas:
+  - name: api
+    count: 2
+  - name: marketing
+    count: 2
+  - name: staff
+    count: 2
+  - name: platform-admin
+    count: 2
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: erp

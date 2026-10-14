@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# المدخل: نطاقٌ لكل سطح (كما في `README.md`: الموقع على الجذر، والتطبيق واللوحة على
+# نطاقين فرعيين). الشهادات من cert-manager — احذف `tls`/الوسم إن لم يكن مثبَّتاً.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: erp
+  namespace: erp
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: 25m
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [erp.example, app.erp.example, platform.erp.example]
+      secretName: erp-tls
+  rules:
+    - host: erp.example
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: erp-marketing, port: { number: 3002 } } } }
+    - host: app.erp.example
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: erp-staff, port: { number: 3001 } } } }
+    - host: platform.erp.example
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: erp-platform-admin, port: { number: 3003 } } } }
+---
+# واجهة الـAPI على نطاقها الخاص (للعملاء الخارجيين والتكاملات).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: erp-api
+  namespace: erp
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/limit-rps: '20'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [api.erp.example]
+      secretName: erp-api-tls
+  rules:
+    - host: api.erp.example
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: erp-api, port: { number: 3000 } } } }

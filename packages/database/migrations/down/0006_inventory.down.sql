@@ -1,0 +1,11 @@
+DROP TRIGGER IF EXISTS inventory_transactions_immutable ON inventory_transactions;
+DROP FUNCTION IF EXISTS prevent_inventory_transaction_mutation();
+DROP TABLE IF EXISTS invoice_item_attributes;
+DROP TABLE IF EXISTS item_serials;
+DROP TABLE IF EXISTS item_lots;
+DROP TABLE IF EXISTS stock_transfer_lines;
+DROP TABLE IF EXISTS stock_transfers;
+DROP TABLE IF EXISTS stock_adjustment_lines;
+DROP TABLE IF EXISTS stock_adjustments;
+DROP TABLE IF EXISTS stock_balances;
+DROP TABLE IF EXISTS inventory_transactions;

@@ -1,0 +1,224 @@
+# ---------------------------------------------------------------------------
+# نشرٌ كامل بحاويةٍ واحدة لكل خدمة: `docker compose -f deploy/docker-compose.yml up -d --build`
+#
+# جهّز البيئة مرةً واحدة: `pnpm env:setup` ثم `node scripts/prepare-docker-env.mjs`.
+# شغّل: `docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build`
+# المنافذ على المضيف:
+#   http://localhost:3000  واجهة الـAPI  (و`/health` للفحص، و`/docs` للتوثيق)
+#   http://localhost:3001  تطبيق الموظفين (staff)
+#   http://localhost:3002  الموقع التسويقي (marketing)
+#   http://localhost:3003  لوحة المنصة (platform-admin)
+#   http://localhost:3004  بوابة العملاء (customer-portal)
+#   http://localhost:8025  MailHog (بريد التطوير)
+#
+# الخدمات الدنيا (postgres · redis · mailhog · minio) موجودةٌ أيضاً في
+# `infrastructure/docker-compose.yml` للتطوير المحلي بلا تطبيقات — وهذا الملف هو النشر الكامل.
+#
+# المتغيّرات: يُنشئ السكربت `deploy/.env` من `.env` الجذري مع تهريب `$` لقواعد Compose.
+# و`deploy/.env` مُستثنى من Git (`.gitignore`) لأن فيه أسراراً؛ عدّله محلياً عند الحاجة.
+# ---------------------------------------------------------------------------
+name: erp
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  postgres:
+    <<: *restart
+    image: postgres:16
+    container_name: erpcloud-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - erpcloud_postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d ${POSTGRES_DB:-app}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    <<: *restart
+    image: redis:7
+    container_name: erpcloud-redis
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - erpcloud_redis_data:/data
+    ports:
+      - '6380:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    <<: *restart
+    image: mailhog/mailhog:v1.0.1
+    container_name: erpcloud-mailhog
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+  # يهيّئ الأدوار وقاعدة البيانات ثم يطبّق الترحيلات والبذرة مرّةً واحدة قبل الإقلاع.
+  migrate:
+    image: erp-api:local
+    pull_policy: never
+    container_name: erpcloud-migrate
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      # الأدوار التي تُنشئها `pnpm db:roles`: تطبيقٌ محدود (erp_api) ومُرحِّل (erp_migrator).
+      DATABASE_APP_ROLE: erp_api
+      DATABASE_APP_PASSWORD: ${DATABASE_APP_PASSWORD:?DATABASE_APP_PASSWORD مطلوب — انظر deploy/.env.example}
+      DATABASE_MIGRATOR_ROLE: erp_migrator
+      DATABASE_MIGRATOR_PASSWORD: ${DATABASE_MIGRATOR_PASSWORD:?DATABASE_MIGRATOR_PASSWORD مطلوب}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-app}
+      DATABASE_MIGRATOR_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-app}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-admin@platform.test}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
+      DEMO_OWNER_EMAIL: ${DEMO_OWNER_EMAIL:-owner@demo.test}
+      DEMO_OWNER_PASSWORD: ${DEMO_OWNER_PASSWORD:-}
+      DEMO_ACCOUNTANT_EMAIL: ${DEMO_ACCOUNTANT_EMAIL:-accountant@demo.test}
+      DEMO_ACCOUNTANT_PASSWORD: ${DEMO_ACCOUNTANT_PASSWORD:-}
+      DEMO_CASHIER_EMAIL: ${DEMO_CASHIER_EMAIL:-cashier@demo.test}
+      DEMO_CASHIER_PASSWORD: ${DEMO_CASHIER_PASSWORD:-}
+      SEED_DEMO: ${SEED_DEMO:-1}
+    entrypoint: ['/bin/sh', '-lc']
+    command: >
+      "pnpm --dir packages/database run migrate &&
+       pnpm --dir packages/database run roles &&
+       if [ \"$$SEED_DEMO\" = \"1\" ]; then pnpm --dir apps/api run seed; fi"
+    restart: 'no'
+
+  api:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    image: erp-api:local
+    container_name: erpcloud-api
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgres://erp_api:${DATABASE_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-app}
+      REDIS_URL: redis://redis:6379
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY مطلوب — انظر deploy/.env.example}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY مطلوب — انظر deploy/.env.example}
+      JWT_KEY_ID: ${JWT_KEY_ID:-dev-key-1}
+      DATA_ENC_KEY: ${DATA_ENC_KEY:?DATA_ENC_KEY مطلوب — انظر deploy/.env.example}
+      FILE_URL_SIGNING_SECRET: ${FILE_URL_SIGNING_SECRET:?FILE_URL_SIGNING_SECRET مطلوب — انظر deploy/.env.example}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+      SMTP_HOST: mailhog
+      SMTP_PORT: '1025'
+      SMTP_SECURE: 'false'
+      CONSOLE_PUBLIC_URL: ${CONSOLE_PUBLIC_URL:-http://localhost:3003}
+      STAFF_PUBLIC_URL: ${STAFF_PUBLIC_URL:-http://localhost:3001}
+      MARKETING_PUBLIC_URL: ${MARKETING_PUBLIC_URL:-http://localhost:3002}
+      CUSTOMER_PUBLIC_URL: ${CUSTOMER_PUBLIC_URL:-http://localhost:3004}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004}
+    ports:
+      - '3000:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'node -e "fetch(\"http://127.0.0.1:3000/health/live\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"']
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  marketing:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        APP: marketing
+        PORT: '3002'
+        # يُخبَز في `rewrites` وقت البناء لأن مخرج `standalone` يجمّد الإعداد.
+        API_PROXY_TARGET: http://api:3000
+    image: erp-marketing:local
+    container_name: erpcloud-marketing
+    depends_on:
+      api: { condition: service_started }
+    environment:
+      NODE_ENV: production
+      PORT: '3002'
+      # نسخة وقت التشغيل للخادم المُصغَّر (اطّلاعات)، والأصل مُخبوزٌ وقت البناء أعلاه.
+      API_PROXY_TARGET: http://api:3000
+    ports:
+      - '3002:3002'
+
+  staff:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        APP: staff
+        PORT: '3001'
+        # يُخبَز في `rewrites` وقت البناء لأن مخرج `standalone` يجمّد الإعداد.
+        API_PROXY_TARGET: http://api:3000
+    image: erp-staff:local
+    container_name: erpcloud-staff
+    depends_on:
+      api: { condition: service_started }
+    environment:
+      NODE_ENV: production
+      PORT: '3001'
+      API_PROXY_TARGET: http://api:3000
+    ports:
+      - '3001:3001'
+
+  platform-admin:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        APP: platform-admin
+        PORT: '3003'
+        # يُخبَز في `rewrites` وقت البناء لأن مخرج `standalone` يجمّد الإعداد.
+        API_PROXY_TARGET: http://api:3000
+    image: erp-platform-admin:local
+    container_name: erpcloud-platform-admin
+    depends_on:
+      api: { condition: service_started }
+    environment:
+      NODE_ENV: production
+      PORT: '3003'
+      API_PROXY_TARGET: http://api:3000
+    ports:
+      - '3003:3003'
+
+  customer-portal:
+    <<: *restart
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        APP: customer-portal
+        PORT: '3004'
+        API_PROXY_TARGET: http://api:3000
+    image: erp-customer-portal:local
+    container_name: erpcloud-customer-portal
+    depends_on:
+      api: { condition: service_started }
+    environment:
+      NODE_ENV: production
+      PORT: '3004'
+      API_PROXY_TARGET: http://api:3000
+    ports:
+      - '3004:3004'
+
+volumes:
+  erpcloud_postgres_data:
+  erpcloud_redis_data:

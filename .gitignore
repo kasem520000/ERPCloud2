@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.next/
+# مجلّد بناء التحقّق الإنتاجيّ (`NEXT_DIST_DIR=.next-build`) — لا يُودَع
+.next-build/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.generated-types.json
+.pg-embedded/
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
+# نشر: نموذج البيئة يُودَع، والقيم الحقيقية لا
+!deploy/.env.example
+logs/
+deploy/jwt-*.pem

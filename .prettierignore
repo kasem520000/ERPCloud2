@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+docs/
+sql.txt
+pnpm-lock.yaml
+packages/contracts/openapi.json
+packages/database/migrations/
+.generated-types.json

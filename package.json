@@ -1,0 +1,56 @@
+{
+  "name": "erp-saas",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "env:setup": "node ./scripts/setup-env.mjs",
+    "env:check": "node ./scripts/check-env.mjs",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typegen": "node ./scripts/typegen.mjs",
+    "typegen:check": "node ./scripts/typegen.mjs --check",
+    "openapi:export": "pnpm --filter \"@erp/api...\" run build && node apps/api/dist/openapi/export-openapi-cli.js",
+    "db:generate": "pnpm --dir packages/database run generate",
+    "db:migrate": "pnpm --dir packages/database run migrate",
+    "db:migrate:down": "pnpm --dir packages/database run migrate:down",
+    "db:seed": "pnpm --dir apps/api run seed",
+    "db:roles": "pnpm --dir packages/database run roles",
+    "db:up": "docker compose -f infrastructure/docker-compose.yml up -d postgres redis",
+    "verify": "pnpm run typegen && pnpm run typecheck && pnpm -r run lint && pnpm run build && pnpm --dir apps/api run test:smoke && pnpm -r run test && pnpm run openapi:export",
+    "db:local": "node ./scripts/local-db.mjs",
+    "start:erp:local": "bash scripts/local-start.sh",
+    "db:seed:coa": "pnpm --dir packages/database run seed:coa",
+    "typecheck": "pnpm --filter \"./packages/*\" run build && pnpm -r run typecheck",
+    "secrets:rotate": "node ./scripts/rotate-data-encryption-key.mjs"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.1.0",
+    "@commitlint/config-conventional": "^19.1.0",
+    "@eslint/js": "^9.16.0",
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.17.0",
+    "@typescript-eslint/parser": "^8.17.0",
+    "eslint": "^9.16.0",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "eslint-plugin-import": "^2.1.0",
+    "globals": "^15.14.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.3.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9",
+    "zod": "^3.24.0"
+  }
+}

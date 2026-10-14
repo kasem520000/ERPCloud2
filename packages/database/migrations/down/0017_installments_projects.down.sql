@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS project_requirements;
+DROP TABLE IF EXISTS progress_bill_lines;
+DROP TABLE IF EXISTS progress_bills;
+DROP TABLE IF EXISTS boq_terms;
+DROP TABLE IF EXISTS project_stages;
+DROP TABLE IF EXISTS project_stage_templates;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS installment_schedule;
+DROP TABLE IF EXISTS installment_contracts;

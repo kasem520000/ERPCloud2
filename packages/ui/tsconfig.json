@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "declaration": false,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx"],
+  "exclude": ["node_modules", "dist", ".next"]
+}

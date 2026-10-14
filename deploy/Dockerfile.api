@@ -1,0 +1,77 @@
+# ---------------------------------------------------------------------------
+# @erp/api — صورة الإنتاج لواجهة النظام (NestJS + Drizzle + PostgreSQL)
+#
+# بناء متعدّد المراحل:
+#   1) builder: يُثبِّت مساحة العمل كاملةً ويبني `@erp/api` وكل حزمه (`...` في المرشّح).
+#   2) runtime: صورة نظيفة بلا أدوات بناء، بمستخدم غير جذري، وفيها خدمة `/health`.
+#
+# التشغيل:  docker run --env-file deploy/.env -p 3000:3000 erp-api
+# الترحيل:  نفس الصورة بأمر آخر — `node packages/database/dist/migrate.js` (انظر
+#           `deploy/docker-compose.yml` خدمة `migrate` و`deploy/k8s/migrate-job.yaml`).
+# ---------------------------------------------------------------------------
+ARG NODE_VERSION=22-bookworm-slim
+
+# --- 1) البناء -----------------------------------------------------------------
+FROM node:${NODE_VERSION} AS builder
+ENV PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH \
+    CI=1
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+WORKDIR /repo
+
+# ثبّت الاعتماديات من manifests فقط كي لا تعيد تغييرات المصدر تنزيل مساحة العمل كاملة.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+RUN mkdir -p apps/api apps/customer-portal apps/marketing apps/migrator apps/platform-admin apps/staff \
+  packages/config packages/contracts packages/database packages/testing packages/ui
+COPY apps/api/package.json apps/api/package.json
+COPY apps/customer-portal/package.json apps/customer-portal/package.json
+COPY apps/marketing/package.json apps/marketing/package.json
+COPY apps/migrator/package.json apps/migrator/package.json
+COPY apps/platform-admin/package.json apps/platform-admin/package.json
+COPY apps/staff/package.json apps/staff/package.json
+COPY packages/config/package.json packages/config/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/database/package.json packages/database/package.json
+COPY packages/testing/package.json packages/testing/package.json
+COPY packages/ui/package.json packages/ui/package.json
+
+RUN --mount=type=cache,id=erpcloud-pnpm-store,target=/pnpm/store,sharing=locked \
+    pnpm install --store-dir=/pnpm/store --frozen-lockfile --prefer-offline \
+      --network-concurrency=4 --fetch-retries=5 --fetch-timeout=120000
+COPY apps ./apps
+COPY packages ./packages
+COPY scripts ./scripts
+# `@erp/api...` = الـAPI وكل حزمةٍ يعتمدها (`contracts` · `database` · `config` · `testing`…)
+RUN pnpm --filter "@erp/api..." run build
+
+# --- 2) التشغيل ----------------------------------------------------------------
+FROM node:${NODE_VERSION} AS runtime
+ENV NODE_ENV=production \
+    PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH \
+    PORT=3000
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /repo
+COPY --from=builder /repo/package.json /repo/pnpm-lock.yaml /repo/pnpm-workspace.yaml ./
+COPY --from=builder /repo/node_modules ./node_modules
+COPY --from=builder /repo/apps/api ./apps/api
+COPY --from=builder /repo/packages ./packages
+
+# إعادة الربط بدون أثر البناء: يحذف اعتماديات التطوير ويُبقي شجرةً صحيحة.
+RUN --mount=type=cache,id=erpcloud-pnpm-store,target=/pnpm/store,sharing=locked \
+    pnpm install --store-dir=/pnpm/store --frozen-lockfile --prod --ignore-scripts --prefer-offline \
+      --network-concurrency=4 --fetch-retries=5 --fetch-timeout=120000
+
+RUN useradd --system --uid 10001 --create-home erp
+USER erp
+
+EXPOSE 3000
+# `node -e` بلا curl حتى لا يعتمد الفحص على أداةٍ خارجية.
+HEALTHCHECK --interval=20s --timeout=5s --start-period=30s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "apps/api/dist/main.js"]

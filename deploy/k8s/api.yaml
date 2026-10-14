@@ -1,0 +1,112 @@
+# ---------------------------------------------------------------------------
+# @erp/api — النشر والخدمة والفحوصات والتوسيع التلقائي.
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: erp
+spec:
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: api }
+  template:
+    metadata:
+      labels: { app: api, app.kubernetes.io/part-of: erp }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      # البذرة والترحيل في Jobٍ منفصل، فلا تُنفَّذ عند كل إقلاع.
+      initContainers:
+        - name: wait-for-postgres
+          image: erp-api:latest
+          command: ['/bin/sh', '-lc']
+          args:
+            - 'until node -e "const u=new URL(process.env.DATABASE_URL);const net=require(\"net\");const s=net.connect(Number(u.port||5432),u.hostname,()=>{s.end();process.exit(0)});s.on(\"error\",()=>process.exit(1))"; do echo "waiting for postgres…"; sleep 3; done'
+          envFrom:
+            - secretRef: { name: erp-secrets }
+      containers:
+        - name: api
+          image: erp-api:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 3000, name: http }]
+          envFrom:
+            - configMapRef: { name: erp-config }
+            - secretRef: { name: erp-secrets }
+          readinessProbe:
+            # `/health/ready` يفحص مجمّع الاتصال بالقاعدة — فلا يتحوّل الخطأ إلى بريقٍ أخضر.
+            httpGet: { path: /health/ready, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            failureThreshold: 4
+          startupProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: '1', memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities: { drop: ['ALL'] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: erp-api
+  namespace: erp
+spec:
+  selector: { app: api }
+  ports: [{ port: 3000, targetPort: 3000, name: http }]
+---
+# يقود العامل الخلفي (`WORKER=1`) متزامناً على نسخةٍ واحدة؛ الـAPI وحده يتوسّع.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: erp
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker, app.kubernetes.io/part-of: erp }
+    spec:
+      containers:
+        - name: worker
+          image: erp-api:latest
+          # نفس مُدخل الـAPI: `main.ts` يفحص `WORKER` فيُقلع مسار العامل (بلا مستمع HTTP).
+          command: ['node', 'apps/api/dist/main.js']
+          envFrom:
+            - configMapRef: { name: erp-config }
+            - secretRef: { name: erp-secrets }
+          env:
+            - { name: WORKER, value: '1' }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+  namespace: erp
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: api }
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }

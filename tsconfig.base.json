@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@erp/*": ["packages/*/src/index.ts"],
+      "@erp/config": ["packages/config/src/index.ts"],
+      "@erp/testing": ["packages/testing/src/index.ts"],
+      "@erp/testing/database": ["packages/testing/src/test-database.ts"],
+      "@erp/testing/factories": ["packages/testing/src/factories.ts"],
+      "@erp/testing/isolation": ["packages/testing/src/isolation-suite.ts"],
+      "@erp/contracts": ["packages/contracts/src/index.ts"],
+      "@erp/database": ["packages/database/src/index.ts"]
+    },
+    "noEmitOnError": true
+  },
+  "include": [
+    "apps/**/*.ts",
+    "apps/**/*.js",
+    "apps/**/*.mjs",
+    "packages/**/*.ts",
+    "packages/**/*.js",
+    "packages/**/*.mjs",
+    "scripts/**/*.mjs"
+  ],
+  "exclude": [
+    "packages/ui",
+    "**/node_modules",
+    "**/dist",
+    "**/.next"
+  ]
+}

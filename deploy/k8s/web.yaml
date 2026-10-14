@@ -1,0 +1,122 @@
+# ---------------------------------------------------------------------------
+# الواجهات الثلاث (Next.js standalone) — النشر والخدمة والفحوصات.
+# متغيّر `API_PROXY_TARGET` مُخبوزٌ في البناء (rewrites) — لذلك يُضبط كـbuild-arg في
+# `deploy/Dockerfile.web`، ويُكرَّر هنا للاطّلاع في وقت التشغيل.
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketing
+  namespace: erp
+spec:
+  selector:
+    matchLabels: { app: marketing }
+  template:
+    metadata:
+      labels: { app: marketing, app.kubernetes.io/part-of: erp }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001 }
+      containers:
+        - name: marketing
+          image: erp-marketing:latest
+          ports: [{ containerPort: 3002, name: http }]
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: PORT, value: '3002' }
+            - { name: HOSTNAME, value: '0.0.0.0' }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: erp-marketing
+  namespace: erp
+spec:
+  selector: { app: marketing }
+  ports: [{ port: 3002, targetPort: 3002, name: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: staff
+  namespace: erp
+spec:
+  selector:
+    matchLabels: { app: staff }
+  template:
+    metadata:
+      labels: { app: staff, app.kubernetes.io/part-of: erp }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001 }
+      containers:
+        - name: staff
+          image: erp-staff:latest
+          ports: [{ containerPort: 3001, name: http }]
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: PORT, value: '3001' }
+            - { name: HOSTNAME, value: '0.0.0.0' }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: erp-staff
+  namespace: erp
+spec:
+  selector: { app: staff }
+  ports: [{ port: 3001, targetPort: 3001, name: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-admin
+  namespace: erp
+spec:
+  selector:
+    matchLabels: { app: platform-admin }
+  template:
+    metadata:
+      labels: { app: platform-admin, app.kubernetes.io/part-of: erp }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001 }
+      containers:
+        - name: platform-admin
+          image: erp-platform-admin:latest
+          ports: [{ containerPort: 3003, name: http }]
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: PORT, value: '3003' }
+            - { name: HOSTNAME, value: '0.0.0.0' }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: erp-platform-admin
+  namespace: erp
+spec:
+  selector: { app: platform-admin }
+  ports: [{ port: 3003, targetPort: 3003, name: http }]
