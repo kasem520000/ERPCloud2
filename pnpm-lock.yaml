@@ -57,6 +57,58 @@ importers:
         specifier: ^3.24.0
         version: 3.25.76
 
+  apps/accounting-app:
+    dependencies:
+      '@erp/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@erp/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@erp/web-core':
+        specifier: workspace:*
+        version: link:../../packages/web-core
+      '@fontsource-variable/inter':
+        specifier: ^5
+        version: 5.3.0
+      '@fontsource/tajawal':
+        specifier: ^5
+        version: 5.3.0
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
+      lucide-react:
+        specifier: ^0.400.0
+        version: 0.400.0(react@19.2.8)
+      next:
+        specifier: ^15.5.4
+        version: 15.5.25(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react:
+        specifier: ^19.1.1
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.1.1
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.0
+        version: 4.3.3
+      '@types/react':
+        specifier: ^19.1.13
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.1.9
+        version: 19.2.7(@types/react@19.2.18)
+      eslint-config-next:
+        specifier: ^15.5.4
+        version: 15.5.25(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      tailwindcss:
+        specifier: ^4.1.0
+        version: 4.3.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
+
   apps/api:
     dependencies:
       '@erp/config':
@@ -4447,10 +4499,6 @@ packages:
 
   postcss@8.5.28:
     resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
-    engines: {node: ^10 || ^12 || >=14}
-
-  postcss@8.5.6:
-    resolution: {integrity: sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg==}
     engines: {node: ^10 || ^12 || >=14}
 
   postgres-array@2.0.0:
@@ -8907,12 +8955,6 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  postcss@8.5.6:
-    dependencies:
-      nanoid: 3.3.18
-      picocolors: 1.1.1
-      source-map-js: 1.2.1
-
   postgres-array@2.0.0: {}
 
   postgres-bytea@1.0.1: {}
@@ -9741,7 +9783,7 @@ snapshots:
   vite@5.4.21(@types/node@22.20.1)(lightningcss@1.33.0):
     dependencies:
       esbuild: 0.21.5
-      postcss: 8.5.6
+      postcss: 8.5.28
       rollup: 4.63.1
     optionalDependencies:
       '@types/node': 22.20.1

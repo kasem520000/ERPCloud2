@@ -8,8 +8,10 @@
  * - `sync-engine`  — replay engine for the offline queue (online-only, idempotent by offlineId)
  * - `i18n`         — bilingual (ar/en) + RTL/LTR language provider factory
  * - `surface-routing` — AUD-13 whole-segment prefix matching
+ * - `use-query`     — minimal data hook (no cache, explicit states, forbidden ≠ error)
  */
 export * from './api';
 export * from './offline-db';
 export * from './surface-routing';
 export * from './sync-engine';
+export * from './use-query';

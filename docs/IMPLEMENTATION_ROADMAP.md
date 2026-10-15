@@ -76,14 +76,20 @@ Move out of `apps/staff` (leave re-exports so staff keeps building unchanged):
 **Exit (met):** staff builds green importing from `@erp/web-core`; new package has its own specs (offline-db +
 sync-engine behavior).
 
-## M3 — Accounting app scaffold (frontend shell, no new backend)
+## M3 — Accounting app scaffold (frontend shell, no new backend) — ✅ IMPLEMENTED 2026-10-15
+
+Implemented and verified (PROGRESS.md §10): read-only screens over existing GET endpoints,
+session/permission shell, marketplace entitlement gating (`accounting` code, operator-
+disable respected), wired into `pnpm verify` and `next-run.mjs` (port 3005).
+
+Original plan (kept for the record):
 
 - `apps/accounting-app` Next.js 15 app on `@erp/ui` + `web-core`, same-origin `/api/v1/*` proxy,
   session/permission shell, navigation for existing accounting surfaces (accounts, journals, periods, trial
   balance, statements, cost centers, ZATCA desk).
 - Wire into root scripts (`typecheck`/`lint`/`test`/`build`) so `pnpm verify` covers it.
 - Marketplace/plan gating entry (`tenant_apps` code) so the app is entitlement-controlled.
-**Exit:** read-only screens render real tenant data through existing endpoints; verify green.
+**Exit (met):** read-only screens render real tenant data through existing endpoints; verify green.
 
 ## M4 — Rep backend: `field-sync` + `rep-workspace` modules (API side of offline-first)
 

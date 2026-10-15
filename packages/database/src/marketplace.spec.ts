@@ -75,6 +75,7 @@ describe('marketplace and white-label rules', () => {
       'moyasar',
       'ocr',
       'esign',
+      'accounting',
       'wms',
     ]);
     for (const app of MARKETPLACE_APPS) {

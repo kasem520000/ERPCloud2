@@ -93,6 +93,17 @@ export const MARKETPLACE_APPS: readonly MarketplaceApp[] = [
     screens: [],
   },
   {
+    code: 'accounting',
+    nameAr: 'تطبيق المحاسبة',
+    nameEn: 'Accounting App',
+    descriptionAr: 'واجهة المحاسب المخصصة: الدليل، القيود، الفترات، التقارير ومكتب الزكاة والضريبة. مشحون مع النظام.',
+    icon: '🧮',
+    version: '1.0.0',
+    monthlyPrice: '0.0000',
+    isCore: true,
+    screens: [],
+  },
+  {
     code: 'wms',
     nameAr: 'المستودعات',
     nameEn: 'WMS',

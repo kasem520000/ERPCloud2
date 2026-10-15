@@ -349,3 +349,49 @@ staff `next build` green (the M2 exit criterion); root `pnpm -r run lint` and
 - `lib/use-query.ts`, `lib/sync.ts`, `lib/employee-offline.ts` — staff-specific
   orchestration, they stay in staff and import the shims.
 - The full i18n dictionary and the staff surface prefix lists stay in staff (content).
+
+---
+
+## 10. M3 — accounting app scaffold (2026-10-15, implemented and verified)
+
+### 10.1 What was built
+
+`apps/accounting-app` — the accountant-focused surface, **read-only over existing
+endpoints** (no new backend, no writes):
+
+- **Shell**: `@erp/ui` theme + `@erp/web-core` session/i18n/use-query/surface-routing;
+  same-origin `/api/v1/*` rewrite, CSP + hardened headers, `output: standalone` — the same
+  `next.config.mjs` posture as staff. Login follows the staff contract (tenant code +
+  e-mail + password, `MFA_REQUIRED` step; no signup — account lifecycle stays in staff).
+- **Screens** (each a `GET` only, permission-honest in the sidebar and the home tiles):
+  `/accounts` (directory with posted balances), `/journals`, `/periods` (+ fiscal years),
+  `/trial-balance` (with the report's totals), `/income-statement`, `/cost-centers`
+  (with balances), `/zatca` (seller card + filings register).
+- **Entitlement (D-002)**: registered the `accounting` code in the marketplace catalog
+  (`packages/database/src/marketplace.ts` — core bundle, price 0, no staff screens) and
+  gated the app on `GET /marketplace/apps`: an enabled install or a pristine core bundle
+  passes; an operator's explicit `tenant_apps.is_enabled = false` locks the tenant out.
+  Rule isolated in `accountingAppEntitled()` and pinned in `tests/app.spec.ts`.
+- **Wiring**: `pnpm verify` covers the new workspace like every other (typecheck/lint/
+  test/build all green); `scripts/next-run.mjs` gained `accounting-app` (port 3005,
+  `ACCOUNTING_APP_PORT`); eslint treats it as a browser app like the other surfaces.
+- **web-core**: `use-query` moved from staff (both apps need it; staff keeps a re-export
+  shim) and exported as `@erp/web-core/use-query`.
+
+### 10.2 Verification
+
+- accounting-app: typecheck ✓, lint ✓, 5/5 tests ✓ (registry ↔ permissions, entitlement
+  rule incl. operator-disable, read-only source invariant), `next build` ✓ (8 routes).
+- packages/database: build ✓, 54/54 tests ✓ (marketplace catalog spec updated with the
+  new code — the core-apps-have-no-screens invariant still holds).
+- apps/staff: 83/83 ✓ (use-query shim), packages/web-core: 14/14 ✓.
+- Root `pnpm -r run lint` and `pnpm -r run typecheck`: clean across all workspaces.
+- Full apps/api suite after the catalog change: see §10.3.
+
+### 10.3 Deferred to later milestones (recorded, not forgotten)
+
+- E2E boot of app+API with a provisioned tenant (the endpoints themselves are covered by
+  the API suite; the app's client is the same one staff uses) — folded into the M6
+  hardening pass.
+- Accounting write flows (journal entry creation, period close) — next accounting
+  milestone, after the rep backend (M4) per the roadmap's dependency order.

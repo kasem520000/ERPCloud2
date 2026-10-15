@@ -19,7 +19,7 @@
  *   3. runs the real `next` CLI entry through Node directly — never through a shell or a
  *      `.bin`/`.cmd` shim — so the same code works on every OS.
  *
- * Usage: `node scripts/next-run.mjs <staff|marketing|platform-admin|customer-portal> [dev|start]`
+ * Usage: `node scripts/next-run.mjs <staff|marketing|platform-admin|customer-portal|accounting-app> [dev|start]`
  */
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -35,6 +35,7 @@ const APP_META = {
   marketing: { portEnv: 'MARKETING_PORT', defaultPort: '3002' },
   'platform-admin': { portEnv: 'PLATFORM_ADMIN_PORT', defaultPort: '3003' },
   'customer-portal': { portEnv: 'CUSTOMER_PORTAL_PORT', defaultPort: '3004' },
+  'accounting-app': { portEnv: 'ACCOUNTING_APP_PORT', defaultPort: '3005' },
 };
 
 const [, , appName = '', mode = 'dev'] = process.argv;

@@ -12,6 +12,7 @@
     "./sync-engine": "./src/sync-engine.ts",
     "./i18n": "./src/i18n.tsx",
     "./surface-routing": "./src/surface-routing.ts",
+    "./use-query": "./src/use-query.ts",
     "./package.json": "./package.json"
   },
   "dependencies": {
