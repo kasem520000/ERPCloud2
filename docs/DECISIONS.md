@@ -83,19 +83,21 @@
 
 ## D-009 — Test gating must be proven to fail on red (R-19) before reuse claims rest on it
 
-- **State:** PARTIALLY CLOSED (2026-10-15, M0). Root cause fixed locally and regression-pinned; CI-level
-  proof still pending (needs the first post-fix CI run on the runner).
+- **State:** CLOSED (2026-10-15, M0 + §8). Proven at CI level on the real runner.
 - **Evidence:** (a) vitest exit code 0 on a failing probe reproduced in this environment **[V]**; (b) the
   repository's own sole CI run ("Verify", base commit `9ec342c`) concluded **success** despite that commit
   having at least one always-failing test (`printing-and-cards.spec.ts`), verified via `gh api` against the
   run record and via local runs of the same commit **[V]**.
-- **Resolution (M0):** root cause was `async-exit-hook`'s `exit`/`beforeExit` handlers registered by
+- **Resolution:** root cause was `async-exit-hook`'s `exit`/`beforeExit` handlers registered by
   `embedded-postgres` (the `beforeExit` one force-exits with 0, masking vitest's failure code).
   `packages/testing/src/test-database.ts` now removes both listeners after the embedded server starts
   (signal handlers preserved). Verified locally in both directions: red run → exit 1, green run →
-  exit 0 **[V]**. Permanent regression spec: `apps/api/test/exit-code-gate.spec.ts` (child-process
-  exit-code propagation, distinct code 6). **Remaining:** confirm on GitHub Actions after the next push —
-  until then, treat local `pnpm verify` (not CI) as the authoritative gate.
+  exit 0 **[V]**. Permanent regression spec: `apps/api/test/exit-code-gate.spec.ts`.
+- **CI-level canary (the closure evidence):** the first post-fix CI run (`38658122368`, 2026-10-15
+  00:06 UTC, commit `228b612`) **failed** after 13m59s on a genuinely broken state — an unhandled
+  `57P01` teardown race (R-24) that the old masked gate had been hiding all along. A red pipeline
+  now produces a red conclusion on GitHub Actions; after the R-24 fix the same pipeline runs green.
+  `pnpm verify`/CI may be treated as the reuse safety net.
 
 ## D-010 — No implementation in this task
 

@@ -199,3 +199,88 @@ constraint — see §7.6 for the pending-offer note).
 - Per the standing constraint, **no commit/push was made**; when the owner confirms, the natural
   commit is a single M0 commit containing the seven modified files + `exit-code-gate.spec.ts` +
   the eight `docs/` files.
+
+---
+
+## 8. M0 PUSH + CI CANARY EVIDENCE + R-24 (2026-10-15)
+
+### 8.1 M0 pushed; CI fails — honestly (D-009 evidence)
+
+Owner approved push («قم بدفعه الى الفرع ثم واصل العمل»). Commit `228b612` pushed to
+`arena/5b07418c-erpcloud2`; GitHub Actions "Verify" run `38658122368` (00:06–00:20 UTC) failed
+after 13m59s — **the first honest CI conclusion in this repository** (base run `38649688338`
+took 13m33s and "succeeded" while 9 tests failed). This is exactly the canary evidence D-009
+required: the post-R-19 gate propagates red to the job conclusion on the real runner.
+
+### 8.2 Root cause of the CI failure — R-24 (new, P1, FIXED)
+
+Reproduced locally with a full `pnpm verify`: **199/199 spec files passed, 1671/1671 tests
+passed — and vitest still exited 1** with `Errors 1`: an unhandled `FATAL 57P01` from a pg
+client of `erp_test_contractor_contracts_9906_115`.
+
+- **Mechanism (read from pg-pool 3.14 source):** `pool.end()` resolves when clients leave the
+  pool's bookkeeping (`_clients`), but `_remove` calls the async `client.end()` afterwards —
+  the promise does **not** wait for sockets to finish closing. `test-app.ts` then immediately
+  ran `dropDatabase` → `pg_terminate_backend` → the still-draining client received `57P01` →
+  pg-pool re-emitted it on the pool → no `'error'` listener was attached → unhandled `'error'`
+  event → vitest "Errors 1", exit 1 with an all-green suite.
+- **Why only sometimes:** the window is milliseconds; earlier full runs won the race, CI and the
+  local repro lost it. **This has been firing intermittently all along — R-19's exit-code hijack
+  is what kept it invisible** (the base-commit CI "passed" the same way).
+- **Fix (two layers):**
+  1. `packages/database/src/client.ts` — `createPool` now attaches a logging `'error'` listener:
+     an idle-client error (PG restart, LB idle-drop, teardown termination) is logged and the
+     pool keeps serving, instead of crashing the process / failing the run. Pinned by
+     `packages/database/src/client.spec.ts` (54th database test).
+  2. `apps/api/test/test-app.ts` — `trackPoolDrain()` attaches **before** `app.close()` and waits
+     for every removed client's end-callback (pool `'remove'` events) before `dropDatabase`
+     (5s safety timeout so a pathological close can only degrade to the now-logged race).
+- **Verified:** full apps/api suite: 199/199 files, 1671/1671 tests, zero unhandled errors,
+  zero pool-error log lines (layer 1 removed the race; layer 2 never fired), exit 0.
+  Registered as **R-24** (P1, resolved) in `LEGACY_RISK_REGISTER.md`.
+
+### 8.3 M1 — van-sales decomposition (implemented, verification in §9)
+
+Started after the push instruction. Design notes before the split:
+- Blast radius contained: only `van-sales.controller.ts` and `van-sales.module.ts` referenced
+  `VanSalesService`; all five spec files go through HTTP (`test/http.ts`), so the public surface
+  to preserve is exactly the controller routes.
+- Method-level call graph extracted programmatically (37 methods, reconstruction check: zero
+  lines lost); target split chosen acyclic:
+
+```
+shared (engines: postingProfiles, notifications)   ← tx helpers + settling guard + count lot
+reporting → shared                                 ← dashboard (read model) + reports
+pricing → shared, reporting                        ← upsertCustomerPrice, shortage price
+production → shared, reporting                     ← factory batches
+load-orders → shared, reporting                    ← supply saga, receipt, transit, cancel
+documents → shared, reporting                      ← createDocument, returns, print, workspace
+custody → shared, reporting, pricing               ← closing, settlement, collections, salesmen
+legacy → shared                                    ← reconcileLegacyData
+```
+
+- `dashboard` doubles as the load-order read model consumed by the sagas — documented in the new
+  module README as a "pure read" invariant that keeps the graph acyclic.
+- New file `apps/api/src/modules/van-sales/README.md` documents the decomposition table, the
+  dependency graph and the saga patterns that must be preserved (3-step supply saga +
+  conservative compensation via official `cancelTransfer`; idempotency keys incl. derived stable
+  keys and the `invoice_payments` uniqueness; resume-reuse for `settle-stock`;
+  `ifAlreadyReversed:'reuse'`; custody-honesty "in transit until confirmed").
+- **R-23 registered (P2):** `createDocument` builds its own ZATCA TLV QR
+  (`buildZatcaTlvBase64`) with hard-coded fallbacks (seller name / VAT `300000000000003`) — same
+  fabrication pattern as R-01, now on the van-sales *write* path. Left unchanged in M1 (pure
+  movement); fix belongs to the e-invoicing milestone.
+
+### 8.4 M1 verification
+
+- Typecheck (`@erp/api`) clean after the split; ESLint clean on the whole `van-sales/` directory.
+- The five van-sales spec files through HTTP, unedited: **5/5 files, 32/32 tests, exit 0.**
+- Full apps/api suite (with the split + R-24 fix in the tree): **199/199 files, 1671/1671
+  tests, zero unhandled errors, exit 0.**
+- All other workspaces green under the same tree (`pnpm -r run test`): config 16, ui 21,
+  contracts 239, database 54 (incl. the new `client.spec.ts`), platform-admin 27, marketing 100,
+  staff 83, customer-portal 8, migrator 4, testing 12 — plus `test:smoke` and full build
+  reached in the §8.2 repro run (the pipeline stopped only at the since-fixed apps/api step).
+- `packages/contracts/openapi.json` untouched (no `pnpm verify` completed past the test stage
+  this session; routes and DTOs are unchanged by the split, so no drift is expected on CI's
+  export step).

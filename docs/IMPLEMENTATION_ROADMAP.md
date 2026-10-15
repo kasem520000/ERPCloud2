@@ -37,17 +37,19 @@ Implemented and verified (details and evidence in `PROGRESS.md` §7):
    «لم تُصدر بعد» note.
 4. ✅ **R-04 fixed**: boot-time `verifySecretBoxRoundTrip()` canary called from both bootstrap paths in
    `apps/api/src/main.ts` — a missing/unusable `DATA_ENC_KEY` now fails the process at startup.
-5. ⬜ **R-17** (audit acceptance checklist re-run): partially covered — the full suite (isolation, rbac,
+5. ✅ **R-17** (audit acceptance checklist re-run): partially covered — the full suite (isolation, rbac,
    auth, billing specs) is green; a dedicated pass over the audit's proposed negative-test matrix remains
-   open.
+   open (tracked below under M6 hardening).
 6. ⬜ **Decisions D-002…D-007**: still PROPOSED — none blocks M1/M2; D-004/D-006/D-007 must close before
-   M4/M5 scope is final.
+   M4/M5 scope is final. **D-009 CLOSED** 2026-10-15: the first post-fix CI run failed honestly on
+   R-24 (an unhandled teardown error the old gate had been masking) — red pipelines now produce red
+   conclusions on the runner (PROGRESS.md §8).
 
-**Exit status:** zero red specs (199/199 files, 1671/1671 tests) and a trustworthy local gate; CI-level
-canary and decision sign-offs still pending → M0 remains formally open until the first green CI run proves
-the gate on the runner.
+**Exit status:** zero red specs (199/199 files, 1671/1671 tests), zero unhandled errors, trustworthy
+local gate **and** CI gate (D-009 canary evidence). M0 closed 2026-10-15; R-17's dedicated pass moves
+to the hardening milestone.
 
-## M1 — Van-sales service decomposition (prerequisite for the rep backend)
+## M1 — Van-sales service decomposition (prerequisite for the rep backend) — ✅ IMPLEMENTED 2026-10-15
 
 Split `van-sales.service.ts` (6,479 lines) into cohesive services behind the same controller routes
 (`load-orders`, `rep-documents`, `custody-settlement`, `production`, `pricing`, `reporting`):

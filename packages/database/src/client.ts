@@ -27,10 +27,23 @@ export type DatabaseHandle = {
 };
 
 export function createPool(connectionString?: string, max?: number): Pool {
-  return new Pool({
+  const pool = new Pool({
     connectionString: connectionString ?? env.DATABASE_URL ?? DEFAULT_DEV_DATABASE_URL,
     max: max ?? env.DATABASE_POOL_MAX,
   });
+  // pg-pool re-emits errors hit by *idle* clients on the pool itself (a server-side
+  // termination such as 57P01, a restart, or a load balancer dropping an idle socket).
+  // pg already removes the dead client and later queries get a fresh one — the event
+  // only needs to be surfaced. Without a listener it becomes an unhandled 'error'
+  // event: in production it would crash the API on a transient connection loss, and
+  // in tests it fails the whole vitest run (exit 1, "Errors 1") even when every
+  // query succeeded. Log and keep the pool alive.
+  pool.on('error', (err: Error & { code?: string }) => {
+    console.error(
+      `[db] idle pool client dropped (pool continues): code=${String(err.code)} ${err.message}`,
+    );
+  });
+  return pool;
 }
 
 export function createDatabase(connectionString?: string, max?: number): DatabaseHandle {

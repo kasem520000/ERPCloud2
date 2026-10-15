@@ -5,19 +5,33 @@ import { DomainError, errorCodes, permissionGrants } from '@erp/contracts';
 import { getTenantContext } from '../platform/context/tenant-context.js';
 import { RequiresPermission } from '../platform/decorators/requires-permission.decorator.js';
 
-import { VanSalesService } from './van-sales.service.js';
+import { VanSalesCustodyService } from './van-sales-custody.service.js';
+import { VanSalesDocumentsService } from './van-sales-documents.service.js';
+import { VanSalesLegacyService } from './van-sales-legacy.service.js';
+import { VanSalesLoadOrdersService } from './van-sales-load-orders.service.js';
+import { VanSalesPricingService } from './van-sales-pricing.service.js';
+import { VanSalesProductionService } from './van-sales-production.service.js';
+import { VanSalesReportingService } from './van-sales-reporting.service.js';
 
 @ApiTags('van-sales')
 @ApiBearerAuth()
 @Controller('van-sales')
 export class VanSalesController {
-  constructor(private readonly vanSales: VanSalesService) {}
+  constructor(
+    private readonly reporting: VanSalesReportingService,
+    private readonly pricing: VanSalesPricingService,
+    private readonly production: VanSalesProductionService,
+    private readonly loadOrders: VanSalesLoadOrdersService,
+    private readonly documents: VanSalesDocumentsService,
+    private readonly custody: VanSalesCustodyService,
+    private readonly legacy: VanSalesLegacyService,
+  ) {}
 
   @Get('dashboard')
   @RequiresPermission('van_sales.view')
   async dashboard() {
     const { tenantId } = getTenantContext();
-    return { data: await this.vanSales.dashboard(tenantId) };
+    return { data: await this.reporting.dashboard(tenantId) };
   }
 
   @Get('reports')
@@ -29,7 +43,7 @@ export class VanSalesController {
   ) {
     const { tenantId } = getTenantContext();
     return {
-      data: await this.vanSales.getReports(tenantId, {
+      data: await this.reporting.getReports(tenantId, {
         salesmanId: salesmanId?.trim() || undefined,
         fromDate: fromDate?.trim() || undefined,
         toDate: toDate?.trim() || undefined,
@@ -46,7 +60,7 @@ export class VanSalesController {
   @RequiresPermission('van_sales.view')
   async me() {
     const { tenantId, membershipId } = getTenantContext();
-    return { data: await this.vanSales.repWorkspace(tenantId, membershipId ?? null) };
+    return { data: await this.documents.repWorkspace(tenantId, membershipId ?? null) };
   }
 
   /**
@@ -58,7 +72,7 @@ export class VanSalesController {
   @RequiresPermission('van_sales.view')
   async salesmen() {
     const { tenantId } = getTenantContext();
-    return { data: await this.vanSales.listSalesmenWithCustody(tenantId) };
+    return { data: await this.custody.listSalesmenWithCustody(tenantId) };
   }
 
   /**
@@ -78,7 +92,7 @@ export class VanSalesController {
     },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.linkSalesmanAccount(tenantId, userId, id, body ?? {}) };
+    return { data: await this.custody.linkSalesmanAccount(tenantId, userId, id, body ?? {}) };
   }
 
   @Post('production-batches')
@@ -106,7 +120,7 @@ export class VanSalesController {
     },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.createProductionBatch(tenantId, userId, body ?? {}) };
+    return { data: await this.production.createProductionBatch(tenantId, userId, body ?? {}) };
   }
 
   @Post('customer-prices')
@@ -132,7 +146,7 @@ export class VanSalesController {
     },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.upsertCustomerPrice(tenantId, body ?? {}, userId) };
+    return { data: await this.pricing.upsertCustomerPrice(tenantId, body ?? {}, userId) };
   }
 
   @Post('load-orders')
@@ -155,7 +169,7 @@ export class VanSalesController {
     },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.createLoadOrder(tenantId, userId, body ?? {}) };
+    return { data: await this.loadOrders.createLoadOrder(tenantId, userId, body ?? {}) };
   }
 
   /**
@@ -171,7 +185,7 @@ export class VanSalesController {
   ) {
     const { tenantId, userId, membershipId } = getTenantContext();
     return {
-      data: await this.vanSales.confirmReceipt(
+      data: await this.loadOrders.confirmReceipt(
         tenantId,
         userId,
         membershipId ?? null,
@@ -196,7 +210,7 @@ export class VanSalesController {
   ) {
     const { tenantId, userId } = getTenantContext();
     return {
-      data: await this.vanSales.createReturnDocument(tenantId, userId, {
+      data: await this.documents.createReturnDocument(tenantId, userId, {
         ...(body ?? {}),
         documentId: id,
       }),
@@ -213,7 +227,7 @@ export class VanSalesController {
   async printView(@Param('id') id: string, @Query('copies') copies?: string) {
     const { tenantId } = getTenantContext();
     return {
-      data: await this.vanSales.documentPrintView(tenantId, id, {
+      data: await this.documents.documentPrintView(tenantId, id, {
         copies: copies ? Number(copies) : 2,
       }),
     };
@@ -259,7 +273,7 @@ export class VanSalesController {
         );
       }
     }
-    return { data: await this.vanSales.createDocument(tenantId, userId, body ?? {}) };
+    return { data: await this.documents.createDocument(tenantId, userId, body ?? {}) };
   }
 
   @Post('load-orders/:id/submit-closing')
@@ -278,7 +292,7 @@ export class VanSalesController {
     },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.submitClosing(tenantId, userId, id, body ?? {}) };
+    return { data: await this.custody.submitClosing(tenantId, userId, id, body ?? {}) };
   }
 
   @Post('load-orders/:id/approve-closing')
@@ -305,7 +319,7 @@ export class VanSalesController {
     },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.approveClosing(tenantId, userId, id, body ?? {}) };
+    return { data: await this.custody.approveClosing(tenantId, userId, id, body ?? {}) };
   }
 
   /**
@@ -320,7 +334,7 @@ export class VanSalesController {
     @Body() body: { settleStockAdjustment?: boolean; remainingAction?: string },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.settleLoadOrderStock(tenantId, userId, id, body ?? {}) };
+    return { data: await this.custody.settleLoadOrderStock(tenantId, userId, id, body ?? {}) };
   }
 
   /**
@@ -332,7 +346,7 @@ export class VanSalesController {
   async rejectReceipt(@Param('id') id: string, @Body() body: { reason?: string }) {
     const { tenantId, userId, membershipId } = getTenantContext();
     return {
-      data: await this.vanSales.rejectReceipt(tenantId, userId, membershipId ?? null, id, body ?? {}),
+      data: await this.loadOrders.rejectReceipt(tenantId, userId, membershipId ?? null, id, body ?? {}),
     };
   }
 
@@ -347,7 +361,7 @@ export class VanSalesController {
     @Body() body: { mode?: string; reason?: string },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.closeTransitDifference(tenantId, userId, id, body ?? {}) };
+    return { data: await this.loadOrders.closeTransitDifference(tenantId, userId, id, body ?? {}) };
   }
 
   /** 🗑️ إلغاء أمر تحميل قبل الاستلام — عبر الإلغاء الرسمي للمناقلة (يعيد الكميات ويعكس القيد). */
@@ -355,7 +369,7 @@ export class VanSalesController {
   @RequiresPermission('van_sales.load.manage')
   async cancelLoadOrder(@Param('id') id: string, @Body() body: { reason?: string }) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.cancelLoadOrder(tenantId, userId, id, body ?? {}) };
+    return { data: await this.loadOrders.cancelLoadOrder(tenantId, userId, id, body ?? {}) };
   }
 
   @Post('load-orders/:id/settle')
@@ -373,7 +387,7 @@ export class VanSalesController {
     },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.settleLoadOrder(tenantId, id, body ?? {}, userId) };
+    return { data: await this.custody.settleLoadOrder(tenantId, id, body ?? {}, userId) };
   }
 
   @Post('collections')
@@ -390,7 +404,7 @@ export class VanSalesController {
     },
   ) {
     const { tenantId, userId } = getTenantContext();
-    return { data: await this.vanSales.collectCustomerDebt(tenantId, userId, body ?? {}) };
+    return { data: await this.custody.collectCustomerDebt(tenantId, userId, body ?? {}) };
   }
 
   @Post('legacy-reconciliation')
@@ -405,7 +419,7 @@ export class VanSalesController {
   ) {
     const { tenantId, userId } = getTenantContext();
     return {
-      data: await this.vanSales.reconcileLegacyData(tenantId, userId, {
+      data: await this.legacy.reconcileLegacyData(tenantId, userId, {
         mode: body?.mode === 'execute' ? 'execute' : 'dry_run',
         resumeFromId: body?.resumeFromId,
         batchLimit: body?.batchLimit,
