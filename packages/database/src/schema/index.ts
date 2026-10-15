@@ -38,4 +38,5 @@ export * from './crm.js';
 export * from './comments.js';
 export * from './project-kanban.js';
 export * from './van-sales.js';
+export * from './field-sync.js';
 

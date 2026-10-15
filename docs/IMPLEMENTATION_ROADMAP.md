@@ -91,7 +91,20 @@ Original plan (kept for the record):
 - Marketplace/plan gating entry (`tenant_apps` code) so the app is entitlement-controlled.
 **Exit (met):** read-only screens render real tenant data through existing endpoints; verify green.
 
-## M4 — Rep backend: `field-sync` + `rep-workspace` modules (API side of offline-first)
+## M4 — Rep backend: `field-sync` + `rep-workspace` modules (API side of offline-first) — ✅ IMPLEMENTED 2026-10-15
+
+Implemented and verified (PROGRESS.md §11): migration `0128_field_sync_queue` (RLS,
+reversible, fingerprints pinned); `field-sync` module — rep guard (D-004: identity +
+warehouse scope via `assertScope`), snapshot + delta on a database-clock watermark, and
+batch replay (invoice/collection/return/receipt) that goes only through the van-sales
+sagas into `sales.postInTx` / the treasury voucher engine, with layered idempotency
+(offlineId outcome replay, per-device monotonic sequence, `field-sync:{offlineId}` saga
+keys) and `sourceOfflineId` for collecting a credit sale made offline; `rep-workspace`
+module — day/visit summary, custody summary, rep-owned closing submission. Exit specs:
+`field-sync.spec.ts` (11 tests incl. the D-004 negative matrix and concurrent replays on
+the same van stock), `rep-workspace.spec.ts` (4), `migration-0128-reversibility.spec.ts`
+(4); D-004 closed as DECIDED. Original plan kept for the record:
+
 
 - `field-sync`: snapshot + delta endpoints (rep-scoped master data: customers + per-customer prices, items,
   tax groups, van warehouse `stock_balances`, price lists, payment methods, watermarks); replay endpoint with

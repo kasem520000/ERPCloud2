@@ -167,6 +167,8 @@ export const rlsProtectedTables = [
   'custom_reports',
   // Future enhancement 06 — durable idempotency ledger for offline POS invoices.
   'offline_queue',
+  // M4 field-sync — replay ledger and conflict inbox for offline rep documents (0128).
+  'field_sync_queue',
   // Future enhancement 07 — Mudad/GOSI files and online invoice payment links.
   'payroll_compliance_settings',
   'payroll_wps_files',

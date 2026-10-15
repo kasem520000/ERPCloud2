@@ -40,7 +40,15 @@
 
 ## D-004 — Scope enforcement for reps: enforce in the API, not just filter in the UI
 
-- **State:** PROPOSED, needs owner decision because it adds per-endpoint work.
+- **State:** DECIDED & IMPLEMENTED 2026-10-15 (M4). The owner's standing «واصل العمل»
+  directive ran against a roadmap that already prescribed the enforcement branch, and the
+  recommendation's precondition ("if the product promise includes 'rep sees only his
+  van/route'") is the promise the rep app ships with — so it was implemented, not
+  described. Every `field-sync` / `rep-workspace` route resolves the rep from the
+  caller's membership, asserts his warehouse scope through `membership_role_scopes`
+  (AUD-03 semantics), and re-checks resource ownership per replayed row; the negative
+  matrix is the exit evidence (`apps/api/test/field-sync.spec.ts`). Reversal path: drop
+  the guard calls — the UI filtering still exists independently.
 - **Context:** `membership_role_scopes` (warehouse/cash-location/POS-terminal) exists but `assertScope()` is
   consumed only by platform backups today (audit item AUD-03) **[V]**.
 - **Recommendation:** if the rep app's product promise includes "rep sees only his van/route", implement

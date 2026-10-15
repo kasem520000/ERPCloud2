@@ -395,3 +395,96 @@ endpoints** (no new backend, no writes):
   hardening pass.
 - Accounting write flows (journal entry creation, period close) — next accounting
   milestone, after the rep backend (M4) per the roadmap's dependency order.
+
+## 11. M4 — rep backend: `field-sync` + `rep-workspace` (2026-10-15, implemented and verified)
+
+The API side of the offline-first rep app — the largest backend milestone in the roadmap.
+First milestone that adds new tables; every rule from the migration conventions held
+(additive, reversible, idempotent, RLS, `rlsProtectedTables`, fingerprints of 0123–0128
+pinned in the reversibility spec).
+
+### 11.1 What was built
+
+- **Migration `0128_field_sync_queue`** (+ down): the replay ledger and conflict inbox for
+  offline rep documents, modeled on `offline_queue` (0102) — never a second document store.
+  Adds `salesman_id` (always derived from the replaying membership), `operation`
+  (invoice/collection/return/receipt — the batch is mixed), `result` (engine outcome
+  snapshot) and `document_id` on top of the 0102 shape. Unique `(tenant, offline_id)` +
+  `(tenant, device, sequence)`, canonical tenant-isolation RLS policy, `erp_api` grants.
+  Drizzle schema in `packages/database/src/schema/field-sync.ts`; `field_sync_queue`
+  registered in `rlsProtectedTables` (rls.spec + isolation.spec expectations updated).
+- **`apps/api/src/modules/field-sync/`** (see its README):
+  - `field-sync-rep-guard.service.ts` — the D-004 boundary in one place: membership →
+    salesman card (403 `FIELD_SYNC_NOT_A_REP` when absent, `FIELD_SYNC_REP_INACTIVE`,
+    `FIELD_SYNC_NO_VAN_WAREHOUSE` for setup gaps) → `assertScope('warehouse', <his van>)`
+    over `membership_role_scopes` (AUD-03 semantics: unconfigured role ⇒ no access).
+  - `field-sync-snapshot.service.ts` — `GET snapshot` (rep-scoped master data: customers,
+    per-customer prices with effective windows, items, units, taxes, item units, barcodes,
+    price lists + items, payment methods, his van warehouse `stock_balances` only, his
+    open load orders, his open credit documents) and `GET delta?since=` (`changed` per
+    collection via `GREATEST(created_at, updated_at) > since`, `deleted` ids via
+    `deleted_at > since`, `full` re-read for collections without change tracking or with
+    live state). The watermark is the database clock read in the same transaction — no
+    device clocks anywhere.
+  - `field-sync-replay.service.ts` — `POST replay` (batch ≤ 100, row-level conflicts like
+    offline POS) and `GET queue` (the rep's own conflict inbox). Idempotency layers:
+    synced-`offline_id` replays its recorded outcome; per-device monotonic sequence; every
+    engine call passes `idempotencyKey = "field-sync:{offlineId}"` into the van-sales
+    sagas, which already key documents/movements/payments on it. `collection`/`return`
+    accept `sourceOfflineId` — a collection can target a credit invoice made by the same
+    device earlier in the same batch, before the server had ever assigned it a number.
+    The receipt crash-window (`VAN_LOAD_ORDER_NOT_AWAITING_RECEIPT` with
+    `received_qty > 0`) is recognised and recorded as synced, not a false conflict.
+- **`apps/api/src/modules/rep-workspace/`** (see its README): `GET day?date=` (documents +
+  collections + per-customer visit aggregation, net revenue of returns), `GET custody`
+  (official van balances + open orders with expected-vs-actual), `POST closing` (the
+  rep's own submission — 403 for any load order that is not his; the back-office route
+  remains for accountants). Thin orchestration only: no tables, no engine calls.
+- **No new permission codes** — the module reuses `van_sales.view` /
+  `van_sales.invoice.create` / `van_sales.collection.create` / `van_sales.closing.submit`,
+  exactly the codes migration 0126 and `linkSalesmanAccount` already grant to the rep
+  role. Replay re-checks the operation-specific code per row.
+
+### 11.2 Verification (all local, real HTTP against an isolated embedded database)
+
+- `apps/api/test/field-sync.spec.ts` — 11 tests: rep-scoped snapshot; other van/other
+  card/no-card/no-scope kept out; honest delta (changed + deleted + full, invalid
+  `since` 422); a full offline day replayed through the engines (invoice + return +
+  collection in one batch — posted `sales_invoices` with journal entries, treasury
+  voucher, official stock movement, `paid_amount` updated); idempotent whole-batch retry
+  (same documents, no double movements); stock exhaustion as a row conflict; the sequence
+  matrix (old / in-batch duplicate / offlineId-sequence mismatch / unknown operation /
+  empty batch 422); the D-004 negative matrix (foreign load order `FIELD_SYNC_SCOPE_VIOLATION`,
+  `FIELD_SYNC_DEVICE_BOUND`, `FIELD_SYNC_PERMISSION_MISSING`,
+  `FIELD_SYNC_SOURCE_NOT_SYNCED`, no-card 403, no-scope 403); conflict inbox scoping;
+  offline receipt confirmation + crash-window recovery; concurrent replays on the same
+  van stock (two parallel requests selling the remaining custody − 1 kg: exactly one
+  winner, load order left at 1 kg, no over-selling, no batch failure).
+- `apps/api/test/rep-workspace.spec.ts` — 4 tests: day summary math from engine documents
+  (net revenue 120.00 = 138.00 sale − 18.00 return, collections with voucher numbers,
+  one visit per customer), invalid date 422 + empty day honest, custody summary
+  (official balance 83 kg, expected remaining 77), closing by the owner + 403 for a
+  foreign rep + 422 without a load order.
+- `apps/api/test/migration-0128-reversibility.spec.ts` — 4 tests: applied by the harness +
+  idempotent re-apply + constraint matrix (operation/status/sequence checks, both unique
+  keys), canonical RLS policy + FORCE + registry membership, down/up cycle (queue route
+  fails loudly 500 while the table is gone; only ledger rows are lost — official
+  documents untouched; cross-tenant session sees zero rows), fingerprints of
+  0123–0128 unchanged.
+- Neighbour suites stay green: isolation 9/9, offline-pos 3/3, permission-codes 5/5,
+  app.module 2/2, van-sales 1/1, permission-scope 7/7, stock-settlement 10/10,
+  stock-acceptance 5/5, production-policy 9/9, 0127-reversibility 4/4.
+- packages/database: build ✓, 54/54 ✓ (rls.spec updated with `field_sync_queue`).
+- Full apps/api suite + root lint/typecheck: see the push/CI note below.
+
+### 11.3 Notes and deferrals
+
+- **D-004 is closed as DECIDED** (see `DECISIONS.md`): scope enforcement is implemented in
+  the API on every field-sync/rep-workspace route, with the negative matrix as the exit
+  evidence. The UI may still *filter* for usability, but it is never the boundary.
+- **D-006 (rep app shell: PWA first) still needs the owner's confirmation before M5**
+  starts — it decides the frontend stack only; the sync contract built here is
+  shell-agnostic by design.
+- Offline *push* of price/customer creation from the device (rep adds a new customer in
+  the field) is deliberately out of M4 scope — the snapshot's customers and prices are
+  back-office facts; deferring keeps the replay to the four document operations.
