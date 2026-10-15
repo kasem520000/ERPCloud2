@@ -44,7 +44,13 @@ describe('حركات الموظف — frmEmpInvs', () => {
   const post = (path: string, body: Record<string, unknown>) => api(ctx.server, 'post', `/api/v1${path}`, { token: actor.token, body });
   const get = (path: string) => api(ctx.server, 'get', `/api/v1${path}`, { token: actor.token });
 
-  const today = () => new Date().toISOString().slice(0, 10);
+  /**
+   * R-20 — the report's default window is the tenant's *business* day, and these
+   * fixtures set no timezone, so that is `Asia/Riyadh` (AUD-17). Computing "today" the
+   * same way keeps the suite deterministic at any hour: after 21:00 UTC the Riyadh day
+   * has already rolled over while the UTC day has not, and the two would disagree.
+   */
+  const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(new Date());
   const movements = (query: string) => get(`/hrm/employee-movements?${query}`);
   const linesOf = async (query: string) => rowsOf(data((await movements(query)).body).rows);
 
@@ -257,7 +263,9 @@ describe('حركات الموظف — frmEmpInvs', () => {
   });
 
   it('📅 من تاريخ / إلى تاريخ — اليوم الأخير داخل الفترة', async () => {
-    const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(
+      new Date(Date.now() - 24 * 3600 * 1000),
+    );
     const outside = await movements(`employee_id=${employeeId}&from=${yesterday}&to=${yesterday}`);
     expect(rowsOf(data(outside.body).rows)).toHaveLength(0);
 

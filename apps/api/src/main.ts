@@ -8,6 +8,7 @@ import { runMigrations } from '@erp/database';
 import { AppModule } from './app.module.js';
 import { applyHttpConfiguration, buildOpenApiDocument, registerOpenApi } from './bootstrap.js';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware.js';
+import { verifySecretBoxRoundTrip } from './modules/platform/auth/secret-box.js';
 import { WorkerRunner } from './modules/platform-services/index.js';
 
 /**
@@ -19,6 +20,8 @@ import { WorkerRunner } from './modules/platform-services/index.js';
  */
 async function bootstrapWorker(): Promise<void> {
   assertRuntimeEnv();
+  // R-04 — fail at startup, not on the first secret the worker tries to read.
+  verifySecretBoxRoundTrip();
 
   const context = await NestFactory.createApplicationContext(AppModule, { bufferLogs: true });
   context.useLogger(context.get(Logger));
@@ -47,6 +50,8 @@ async function bootstrap(): Promise<void> {
 
   // PHASE_02 §8: fail fast on a missing runtime variable instead of degrading silently.
   assertRuntimeEnv();
+  // R-04 — fail at startup, not on the first MFA enrolment or e-invoice credential read.
+  verifySecretBoxRoundTrip();
 
   try {
     const outcome = await runMigrations();

@@ -104,6 +104,10 @@ export async function startTestDatabaseServer(options: StartOptions = {}): Promi
     };
   }
 
+  const beforeImport = {
+    exit: new Set(process.listeners('exit')),
+    beforeExit: new Set(process.listeners('beforeExit')),
+  };
   const { default: EmbeddedPostgres } = await import('embedded-postgres');
   const port = options.port ?? (await freePort());
   const dataDir =
@@ -119,6 +123,34 @@ export async function startTestDatabaseServer(options: StartOptions = {}): Promi
 
   await server.initialise();
   await server.start();
+  /**
+   * R-19 — `embedded-postgres` registers `async-exit-hook` at import time, and that
+   * library's `beforeExit` handler force-calls `process.exit(0)` once its hooks are done.
+   * Vitest reports failures by setting `process.exitCode = 1` and letting the process end
+   * naturally — which fires `beforeExit` — so the hook silently turned every red run
+   * green for the shell (reproduced: `vitest run` with one failing test exited 0 whenever
+   * the embedded server had been started, and exited 1 without it; the repository's own
+   * sole CI run "succeeded" on a commit with a failing spec).
+   *
+   * Both process-exit listeners the library installs are removed here:
+   * - `beforeExit` — the one that masked the exit code (it exits hard with a literal 0).
+   * - `exit` — it runs the library's async shutdown hook *synchronously* with no callback,
+   *   which can only end in `TypeError: done is not a function`; async work cannot run
+   *   inside the `exit` event anyway, so this listener never actually cleaned anything up.
+   *
+   * Nothing is lost by removing them:
+   * - Normal runs stop the cluster through the deterministic teardown returned below
+   *   (vitest always calls the global-setup teardown).
+   * - The library's SIGINT/SIGTERM/SIGHUP/SIGBREAK hooks are left in place, so an
+   *   interrupted run still shuts its cluster down (that path works, because the signal
+   *   handlers drive the process to `process.exit` themselves).
+   */
+  for (const listener of process.listeners('exit')) {
+    if (!beforeImport.exit.has(listener)) process.removeListener('exit', listener);
+  }
+  for (const listener of process.listeners('beforeExit')) {
+    if (!beforeImport.beforeExit.has(listener)) process.removeListener('beforeExit', listener);
+  }
   const superUserUrl = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`;
   log(`embedded postgres listening on 127.0.0.1:${port}`);
 

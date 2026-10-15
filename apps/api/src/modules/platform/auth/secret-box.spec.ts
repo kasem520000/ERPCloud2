@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TEST_DATA_ENC_KEY, decideDataEncryptionKey } from '@erp/config';
 
-import { openSecret, resealSecret, sealSecret } from './secret-box.js';
+import { openSecret, resealSecret, sealSecret, verifySecretBoxRoundTrip } from './secret-box.js';
 
 const KEY = 'unit-test-data-encryption-key';
 
@@ -64,5 +64,15 @@ describe('secret-box', () => {
     expect(() => openSecret(`v1:${iv}:${tag}:${flipped.toString('base64')}`, KEY)).toThrow();
     expect(() => openSecret('not-an-envelope', KEY)).toThrow();
     expect(() => openSecret('v2:aa:bb:cc', KEY)).toThrow();
+  });
+
+  /**
+   * R-04 — the boot canary the API calls in `main.ts` before it accepts traffic: it must
+   * pass under the resolved key, and its failure mode is the key-resolution error itself
+   * (a deployment without `DATA_ENC_KEY` cannot reach the listener). The resolution
+   * failure is pinned by `decideDataEncryptionKey(undefined, 'production')` above.
+   */
+  it('R-04 boot canary: seals and opens a probe under the resolved key', () => {
+    expect(() => verifySecretBoxRoundTrip()).not.toThrow();
   });
 });

@@ -1052,11 +1052,7 @@ export class HrmService implements OnModuleInit {
    * (`tenant_settings['locale.timezone']` ← `tenants.timezone` ← `'Asia/Riyadh'`).
    * يمنع انزلاق التاريخ حول منتصف الليل بين UTC والتوقيت المحلي للمنشأة.
    */
-  private async resolveBusinessTodayInTx(
-    tx: DrizzleTx,
-    tenantId: string,
-    now = new Date(),
-  ): Promise<string> {
+  private async resolveBusinessTimezoneInTx(tx: DrizzleTx, tenantId: string): Promise<string> {
     const [setting] = await tx
       .select({ value: tenantSettings.value })
       .from(tenantSettings)
@@ -1072,10 +1068,22 @@ export class HrmService implements OnModuleInit {
         ? setting.value.trim()
         : (tenant?.timezone?.trim() || 'Asia/Riyadh');
     try {
-      return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+      // Validates the zone name through Intl before it ever reaches SQL, so an invalid
+      // tenant setting cannot turn the report query into a database error.
+      new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+      return tz;
     } catch {
-      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(now);
+      return 'Asia/Riyadh';
     }
+  }
+
+  private async resolveBusinessTodayInTx(
+    tx: DrizzleTx,
+    tenantId: string,
+    now = new Date(),
+  ): Promise<string> {
+    const tz = await this.resolveBusinessTimezoneInTx(tx, tenantId);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
   }
 
   async employeeMovements(tenantId: string, query: EmployeeMovementsQuery = {}) {
@@ -1090,12 +1098,25 @@ export class HrmService implements OnModuleInit {
     }
 
     // «من تاريخ»/«إلى تاريخ» open on today (`FrmEmpInvs_Loaded` L72) and «إلى» is inside.
-    const today = await withTenantTx(this.database.db, tenantId, (tx) =>
-      this.resolveBusinessTodayInTx(tx, tenantId),
+    const tz = await withTenantTx(this.database.db, tenantId, (tx) =>
+      this.resolveBusinessTimezoneInTx(tx, tenantId),
     );
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
     const from = query.from ?? today;
     const to = query.to ?? today;
     const movementType = query.movementType ?? 'all';
+
+    /**
+     * R-20 — the window above is the tenant's *business* day (AUD-17), so the date the
+     * documents are compared by must be read in the same timezone. `${postedAt}::date`
+     * alone casts in the database session's zone (UTC on the test server), which made the
+     * default window and the rows disagree for three hours every day: after 21:00 UTC the
+     * Riyadh day has already rolled over, so invoices posted moments earlier fell outside
+     * their own default window. `timestamptz AT TIME ZONE <tz>` renders the wall-clock
+     * timestamp in the tenant's zone first; casting that to a date keeps window and rows
+     * in one calendar.
+     */
+    const businessDate = sql`((${salesInvoices.postedAt} AT TIME ZONE ${tz})::date)`;
 
     const rows = await withTenantTx(this.database.db, tenantId, (tx) =>
       tx
@@ -1103,7 +1124,7 @@ export class HrmService implements OnModuleInit {
           invoiceId: salesInvoices.id,
           number: salesInvoices.number,
           kind: salesInvoices.kind,
-          date: sql<string>`${salesInvoices.postedAt}::date`,
+          date: sql<string>`${businessDate}`,
           total: salesInvoices.total,
           isPos: sql<boolean>`(${salesInvoices.orderType} IS NOT NULL OR ${salesInvoices.shiftId} IS NOT NULL)`,
           orderType: salesInvoices.orderType,
@@ -1131,13 +1152,13 @@ export class HrmService implements OnModuleInit {
               : movementType === 'returns'
                 ? eq(salesInvoices.kind, 'sale_return')
                 : inArray(salesInvoices.kind, ['sale', 'sale_return']),
-            gte(sql`${salesInvoices.postedAt}::date`, from),
-            lte(sql`${salesInvoices.postedAt}::date`, to),
+            gte(sql`${businessDate}`, from),
+            lte(sql`${businessDate}`, to),
             employeeId ? eq(salesInvoices.salesmanId, employeeId) : isNotNull(salesInvoices.salesmanId),
             query.branchId ? eq(salesInvoices.branchId, query.branchId) : undefined,
           ),
         )
-        .orderBy(asc(sql`${salesInvoices.postedAt}::date`), asc(salesInvoices.number), asc(salesInvoiceLines.lineNo)));
+        .orderBy(asc(sql`${businessDate}`), asc(salesInvoices.number), asc(salesInvoiceLines.lineNo)));
 
     const movements: EmployeeMovementRow[] = [];
     const seen = new Set<string>();

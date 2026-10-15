@@ -50,6 +50,25 @@ export function openSecret(payload: string, key = env.DATA_ENC_KEY): Buffer {
   }
 }
 
+/**
+ * R-04 — boot-time canary for the data-encryption key.
+ *
+ * `DATA_ENC_KEY` resolution is fail-closed at *use* time (AUD-16): a deployment that
+ * forgot the key would boot healthy and then fail on the first MFA enrolment or
+ * e-invoicing credential read. The API calls this once during bootstrap — before the
+ * listener accepts traffic or the worker starts consuming — so a missing or unusable
+ * key fails the process at startup instead. It seals and opens a throwaway probe, which
+ * exercises exactly the code path real secrets take (key resolution → AES-256-GCM
+ * seal → authenticated open); the probe value is a constant, never a real secret.
+ */
+export function verifySecretBoxRoundTrip(): void {
+  const probe = 'erp-secret-box-boot-canary';
+  const opened = openSecret(sealSecret(probe)).toString('utf8');
+  if (opened !== probe) {
+    throw new Error('DATA_ENC_KEY canary failed: the sealed probe did not open to its own plaintext');
+  }
+}
+
 export type ResealOutcome = {
   /** Re-encrypted (or unchanged) `v1:` envelope. */
   payload: string;
