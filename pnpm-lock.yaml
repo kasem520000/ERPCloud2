@@ -52,7 +52,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -167,7 +167,7 @@ importers:
         version: 1.5.11(@swc/core@1.16.1)(esbuild@0.28.2)(rollup@4.63.1)(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.33.0))
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   apps/customer-portal:
     dependencies:
@@ -195,7 +195,7 @@ importers:
         version: 15.5.25(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   apps/marketing:
     dependencies:
@@ -250,13 +250,13 @@ importers:
         version: 4.3.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   apps/migrator:
     devDependencies:
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   apps/platform-admin:
     dependencies:
@@ -311,7 +311,7 @@ importers:
         version: 4.3.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   apps/staff:
     dependencies:
@@ -321,6 +321,9 @@ importers:
       '@erp/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@erp/web-core':
+        specifier: workspace:*
+        version: link:../../packages/web-core
       '@fontsource-variable/inter':
         specifier: ^5
         version: 5.3.0
@@ -375,7 +378,7 @@ importers:
         version: 4.3.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   packages/config:
     dependencies:
@@ -385,7 +388,7 @@ importers:
     devDependencies:
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   packages/contracts:
     dependencies:
@@ -401,7 +404,7 @@ importers:
     devDependencies:
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   packages/database:
     dependencies:
@@ -432,7 +435,7 @@ importers:
         version: 4.23.13
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   packages/testing:
     dependencies:
@@ -454,7 +457,7 @@ importers:
         version: 16.14.0-beta.17
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
   packages/ui:
     dependencies:
@@ -488,7 +491,35 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.33.0)
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
+
+  packages/web-core:
+    dependencies:
+      '@erp/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      react:
+        specifier: ^19.1.1
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.1.1
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.1.13
+        version: 19.2.18
+      fake-indexeddb:
+        specifier: ^6.2.2
+        version: 6.2.5
+      happy-dom:
+        specifier: ^19.0.2
+        version: 19.0.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0)
 
 packages:
 
@@ -2169,6 +2200,9 @@ packages:
   '@types/mime@1.3.5':
     resolution: {integrity: sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==}
 
+  '@types/node@20.19.43':
+    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
+
   '@types/node@22.20.1':
     resolution: {integrity: sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==}
 
@@ -2203,6 +2237,9 @@ packages:
 
   '@types/supertest@6.0.3':
     resolution: {integrity: sha512-8WzXq62EXFhJ7QsH3Ocb/iKQ/Ty9ZVWnVzoTKc9tyyFRRF3a74Tk2+TLFgaFFw364Ere+npzHKEJ6ga2LzIL7w==}
+
+  '@types/whatwg-mimetype@3.0.2':
+    resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
 
   '@typescript-eslint/eslint-plugin@8.67.0':
     resolution: {integrity: sha512-Un7Heoyj65NREbKAyIrFxeM143NZpExWmy1Nep4DLeQOeLlTeumPjoNKnBrU5D5moWXbPJgRa5Uwcdu0faVNGQ==}
@@ -3293,6 +3330,10 @@ packages:
     resolution: {integrity: sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==}
     engines: {node: '>= 18'}
 
+  fake-indexeddb@6.2.5:
+    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
+    engines: {node: '>=18'}
+
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
@@ -3488,6 +3529,10 @@ packages:
     resolution: {integrity: sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==}
     engines: {node: '>=0.4.7'}
     hasBin: true
+
+  happy-dom@19.0.2:
+    resolution: {integrity: sha512-831CLbgDyjRbd2lApHZFsBDe56onuFcjsCBPodzWpzedTpeDr8CGZjs7iEIdNW1DVwSFRecfwzLpVyGBPamwGA==}
+    engines: {node: '>=20.0.0'}
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -5136,6 +5181,10 @@ packages:
   webpack-virtual-modules@0.6.2:
     resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
 
+  whatwg-mimetype@3.0.0:
+    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
+    engines: {node: '>=12'}
+
   which-boxed-primitive@1.1.1:
     resolution: {integrity: sha512-TbX3mj8n0odCBFVlY8AxkqcHASw3L60jIuF8jFP78az3C2YhmGvqbHBpAjTRH2/xqYunrJ9g1jSyjCjpoWzIAA==}
     engines: {node: '>= 0.4'}
@@ -6418,6 +6467,10 @@ snapshots:
 
   '@types/mime@1.3.5': {}
 
+  '@types/node@20.19.43':
+    dependencies:
+      undici-types: 6.21.0
+
   '@types/node@22.20.1':
     dependencies:
       undici-types: 6.21.0
@@ -6466,6 +6519,8 @@ snapshots:
     dependencies:
       '@types/methods': 1.1.4
       '@types/superagent': 8.1.11
+
+  '@types/whatwg-mimetype@3.0.2': {}
 
   '@typescript-eslint/eslint-plugin@8.67.0(@typescript-eslint/parser@8.67.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:
@@ -7779,6 +7834,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  fake-indexeddb@6.2.5: {}
+
   fast-deep-equal@3.1.3: {}
 
   fast-equals@5.4.3: {}
@@ -7992,6 +8049,12 @@ snapshots:
       wordwrap: 1.0.0
     optionalDependencies:
       uglify-js: 3.19.3
+
+  happy-dom@19.0.2:
+    dependencies:
+      '@types/node': 20.19.43
+      '@types/whatwg-mimetype': 3.0.2
+      whatwg-mimetype: 3.0.0
 
   has-bigints@1.1.0: {}
 
@@ -9685,7 +9748,7 @@ snapshots:
       fsevents: 2.3.3
       lightningcss: 1.33.0
 
-  vitest@2.1.9(@types/node@22.20.1)(lightningcss@1.33.0):
+  vitest@2.1.9(@types/node@22.20.1)(happy-dom@19.0.2)(lightningcss@1.33.0):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(lightningcss@1.33.0))
@@ -9709,6 +9772,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.20.1
+      happy-dom: 19.0.2
     transitivePeerDependencies:
       - less
       - lightningcss
@@ -9721,6 +9785,8 @@ snapshots:
       - terser
 
   webpack-virtual-modules@0.6.2: {}
+
+  whatwg-mimetype@3.0.0: {}
 
   which-boxed-primitive@1.1.1:
     dependencies:

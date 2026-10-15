@@ -284,3 +284,68 @@ legacy → shared                                    ← reconcileLegacyData
 - `packages/contracts/openapi.json` untouched (no `pnpm verify` completed past the test stage
   this session; routes and DTOs are unchanged by the split, so no drift is expected on CI's
   export step).
+
+---
+
+## 9. M1 CI GREEN + M2 `packages/web-core` (2026-10-15)
+
+### 9.1 CI verdict on the M1/R-24 commit — first honest green run
+
+Run `38662688487` (commit `c4142c0`, 00:54–01:07 UTC) concluded **success** on the full
+`pnpm verify` pipeline. Sequence of the three CI runs, for the record:
+
+| Run | Commit | State | Conclusion | Meaning |
+|---|---|---|---|---|
+| `38649688338` | `9ec342c` (base) | 9 failing tests | "success" | gate broken — failures masked (R-19) |
+| `38658122368` | `228b612` (M0) | all tests pass, 1 unhandled error | **failure** | gate honest — R-24 unmasked |
+| `38662688487` | `c4142c0` (M1+R-24) | all green | **success** | gate honest and pipeline green |
+
+**D-009 is now proven in both directions at CI level.** The reuse safety net exists.
+
+### 9.2 M2 — `@erp/web-core` extraction (implemented and verified)
+
+New workspace package `packages/web-core` (ships TypeScript source, compiled by each app —
+same model as `@erp/ui`/ADR-030):
+
+- `src/api.ts` — verbatim move from `apps/staff/lib/api.ts` (API client, bearer token,
+  transparent refresh on 401, problem+json errors, P-C8 support-token session).
+- `src/session.tsx` — verbatim (React session provider over the api client).
+- `src/offline-db.ts` — verbatim (IndexedDB adapter: catalog cache + offline invoice queue).
+- `src/sync-engine.ts` — verbatim (replay engine; posts only pending; newest-first).
+- `src/surface-routing.ts` — the AUD-13 whole-segment `matchesPrefix` primitive; each app
+  keeps its own prefix lists (staff's `/m`, `/supplier-portal`, `/esign` stay in staff).
+- `src/i18n.tsx` — NEW `createI18n(strings)` factory extracted from the staff provider:
+  the bilingual/RTL/LTR behavior and storage key are shared, the dictionary stays in each
+  app (product content ≠ infrastructure). `apps/staff/lib/i18n.tsx` now builds its
+  unchanged export surface (`STRINGS`, `translate`, `dirFor`, `LanguageProvider`,
+  `useLang`, `LANGUAGE_STORAGE_KEY`, `Lang`) from the factory.
+
+Staff keeps building unchanged through one-line re-export shims at the original paths
+(`lib/api.ts`, `lib/session.tsx`, `lib/offline-db.ts`, `lib/sync-engine.ts`) — no app file
+was modified for imports; `next.config.mjs` transpiles the new package; `package.json`
+gains `@erp/web-core: workspace:*`.
+
+**New behavioral specs (the old staff spec only asserted source text):**
+- `packages/web-core/tests/offline-db.spec.ts` — device id stability, sequence
+  monotonicity, queue ordering (newest first), synced-only cleanup keeping
+  conflicts/pending, patch semantics + missing-id handling, catalog bundle round-trip.
+- `packages/web-core/tests/sync-engine.spec.ts` — posts pending records with identity +
+  bearer token (fetch stubbed), applies synced/conflict results per ticket, offline and
+  empty-queue no-ops, conflict retry re-posts the same offlineId.
+- `packages/web-core/tests/primitives.spec.ts` — AUD-13 segment matching (the
+  `/marina`-vs-`/m` regression) and i18n dictionary semantics.
+- Environment: `happy-dom` + `fake-indexeddb` (new devDependencies, lockfile updated).
+
+**Two staff meta-specs updated to follow the moved code (assertions unchanged in
+substance):** `tests/offline-pos.spec.ts` and `tests/permission-codes.spec.ts` read the
+offline/sync/session sources from `packages/web-core/src/` instead of the staff shims.
+
+**Verification:** web-core 3/3 files, 14/14 tests; staff 14/14 files, 83/83 tests;
+staff `next build` green (the M2 exit criterion); root `pnpm -r run lint` and
+`pnpm -r run typecheck` clean across all workspaces.
+
+### 9.3 What is deliberately NOT in M2
+
+- `lib/use-query.ts`, `lib/sync.ts`, `lib/employee-offline.ts` — staff-specific
+  orchestration, they stay in staff and import the shims.
+- The full i18n dictionary and the staff surface prefix lists stay in staff (content).

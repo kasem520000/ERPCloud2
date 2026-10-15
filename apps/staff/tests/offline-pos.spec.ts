@@ -21,8 +21,10 @@ describe('offline POS PWA surface', () => {
   });
 
   it('keeps the queue, barcode fallback and ten-second reconnect loop in the client', async () => {
-    const db = await readFile(source('lib/offline-db.ts'), 'utf8');
-    const sync = await readFile(source('lib/sync-engine.ts'), 'utf8');
+    // M2: the offline adapter + sync engine moved to packages/web-core (with real
+    // behavioral specs there); the source-level assertions follow the code.
+    const db = await readFile(source('../../packages/web-core/src/offline-db.ts'), 'utf8');
+    const sync = await readFile(source('../../packages/web-core/src/sync-engine.ts'), 'utf8');
     const pos = await readFile(source('app/pos/offline/page.tsx'), 'utf8');
     const queue = await readFile(source('app/pos/offline-queue/page.tsx'), 'utf8');
     expect(db).toContain("createObjectStore('queue'");

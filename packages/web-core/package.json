@@ -1,0 +1,36 @@
+{
+  "name": "@erp/web-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared web runtime for the ERPCloud frontends (staff, rep PWA, accounting app): API client with session refresh, offline IndexedDB queue, sync engine, i18n factory and surface-routing primitives. Ships as TypeScript source and is compiled by each app's own toolchain (ADR-030, same as @erp/ui).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./session": "./src/session.tsx",
+    "./offline-db": "./src/offline-db.ts",
+    "./sync-engine": "./src/sync-engine.ts",
+    "./i18n": "./src/i18n.tsx",
+    "./surface-routing": "./src/surface-routing.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@erp/contracts": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.13",
+    "fake-indexeddb": "^6.2.2",
+    "happy-dom": "^19.0.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9"
+  },
+  "scripts": {
+    "lint": "eslint src tests --config ../../eslint.config.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

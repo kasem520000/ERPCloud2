@@ -31,7 +31,12 @@ const known = (code: string) => isKnownPermissionCode(code) || code in permissio
 
 describe('AUD-12 — رموز الصلاحيات في الواجهة', () => {
   it('لا جدول aliases محلياً — التحقق يمرّ بـcanonicalizePermissionCode', async () => {
-    const source = await readFile(new URL('lib/session.tsx', ROOT), 'utf8');
+    // M2: the session provider moved to packages/web-core (staff/lib/session.tsx is a
+    // re-export shim); the AUD-12 invariant is asserted on the real source.
+    const source = await readFile(
+      new URL('../../packages/web-core/src/session.tsx', ROOT),
+      'utf8',
+    );
     expect(source).not.toContain('PERMISSION_ALIASES');
     expect(source).toContain('canonicalizePermissionCode');
   });

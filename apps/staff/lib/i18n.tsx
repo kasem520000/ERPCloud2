@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createI18n, dirFor, LANGUAGE_STORAGE_KEY, type DictEntry, type Lang } from '@erp/web-core/i18n';
 
 /**
  * Language preference — settings screen «اللغة» in the desktop tree.
@@ -10,13 +10,15 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
  * Arabic-first (it mirrors Arabic source documents), so screens keep their Arabic text in
  * English mode; the navigation labels always follow the selected language because both
  * names live in `lib/navigation.ts`.
+ *
+ * M2 — the provider/hook/translate primitives live in `@erp/web-core/i18n`
+ * (`createI18n`) and are built here over THIS app's dictionary. The exported surface
+ * (`STRINGS`, `translate`, `dirFor`, `LANGUAGE_STORAGE_KEY`, `LanguageProvider`,
+ * `useLang`) is unchanged for existing importers.
  */
 
-export type Lang = 'ar' | 'en';
-
-export const LANGUAGE_STORAGE_KEY = 'erp.lang';
-
-type DictEntry = { ar: string; en: string };
+export type { DictEntry, Lang };
+export { dirFor, LANGUAGE_STORAGE_KEY };
 
 export const STRINGS: Record<string, DictEntry> = {
   'app.name': { ar: 'نظام المحاسبة السحابي', en: 'Cloud Accounting System' },
@@ -55,7 +57,7 @@ export const STRINGS: Record<string, DictEntry> = {
   'login.password': { ar: 'كلمة المرور', en: 'Password' },
   'login.submit': { ar: 'دخول', en: 'Sign in' },
   'login.busy': { ar: 'جارٍ الدخول…', en: 'Signing in…' },
-  'login.signup': { ar: 'ليس لديك حساب؟ اشترك الآن', en: 'No account? Sign up' },
+  'login.signup': { ar: 'ليس لديك حساب؟ اشترك الآن', en: 'No account? Sign up now' },
   'login.error.invalid': { ar: 'بيانات الدخول غير صحيحة. تحقق من رمز المنشأة والبريد وكلمة المرور.', en: 'Invalid credentials. Check the tenant code, e-mail and password.' },
   'login.error.suspended': { ar: 'الاشتراك موقوف. تواصل مع إدارة المنصة لتفعيل الحساب.', en: 'Subscription suspended. Contact platform administration to activate the account.' },
   'login.error.rateLimited': { ar: 'محاولات كثيرة. انتظر دقيقة ثم أعد المحاولة.', en: 'Too many attempts. Wait a minute and try again.' },
@@ -77,52 +79,8 @@ export const STRINGS: Record<string, DictEntry> = {
   'common.cancel': { ar: 'إلغاء', en: 'Cancel' },
 };
 
-export function translate(key: string, lang: Lang): string {
-  return STRINGS[key]?.[lang] ?? key;
-}
+const i18n = createI18n(STRINGS);
 
-export function dirFor(lang: Lang): 'rtl' | 'ltr' {
-  return lang === 'ar' ? 'rtl' : 'ltr';
-}
-
-type LangContextValue = {
-  lang: Lang;
-  dir: 'rtl' | 'ltr';
-  setLang: (lang: Lang) => void;
-  t: (key: string) => string;
-};
-
-const LangContext = createContext<LangContextValue | undefined>(undefined);
-
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('ar');
-
-  // The stored preference wins; read after mount so SSR and the first paint stay Arabic/RTL.
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem(LANGUAGE_STORAGE_KEY) : null;
-    if (stored === 'en' || stored === 'ar') setLangState(stored);
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.lang = lang;
-    document.documentElement.dir = dirFor(lang);
-  }, [lang]);
-
-  const setLang = useCallback((next: Lang) => {
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
-    setLangState(next);
-  }, []);
-
-  const value = useMemo<LangContextValue>(
-    () => ({ lang, dir: dirFor(lang), setLang, t: (key: string) => translate(key, lang) }),
-    [lang, setLang],
-  );
-
-  return <LangContext.Provider value={value}>{children}</LangContext.Provider>;
-}
-
-export function useLang(): LangContextValue {
-  const context = useContext(LangContext);
-  if (!context) throw new Error('useLang must be used inside <LanguageProvider>');
-  return context;
-}
+export const translate = i18n.translate;
+export const LanguageProvider = i18n.LanguageProvider;
+export const useLang = i18n.useLang;

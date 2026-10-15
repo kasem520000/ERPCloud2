@@ -59,13 +59,21 @@ Split `van-sales.service.ts` (6,479 lines) into cohesive services behind the sam
 **Why first:** the rep backend builds directly on these services; refactoring after would churn the new code.
 **Exit:** specs green, review confirms no behavior drift (diff review of engine call sites).
 
-## M2 — `packages/web-core` extraction (prerequisite for both new frontends)
+## M2 — `packages/web-core` extraction (prerequisite for both new frontends) — ✅ IMPLEMENTED 2026-10-15
+
+Implemented and verified (PROGRESS.md §9): API client + session, offline-db, sync-engine
+moved verbatim into `@erp/web-core` behind re-export shims; `matchesPrefix` (AUD-13) and a
+`createI18n` factory added as shared primitives; **14 new behavioral specs** (the module had
+none — the old staff spec asserted source text only); staff builds/tests green on the new
+package. DevDeps `happy-dom` + `fake-indexeddb` added (lockfile updated).
+
+Original plan (kept for the record):
 
 Move out of `apps/staff` (leave re-exports so staff keeps building unchanged):
 - API client + session refresh (`lib/api.ts`, `lib/session.tsx` primitives),
 - offline IndexedDB adapter (`lib/offline-db.ts`), sync engine (`lib/sync-engine.ts`),
 - surface routing / i18n primitives as needed by both apps.
-**Exit:** staff builds green importing from `@erp/web-core`; new package has its own specs (offline-db +
+**Exit (met):** staff builds green importing from `@erp/web-core`; new package has its own specs (offline-db +
 sync-engine behavior).
 
 ## M3 — Accounting app scaffold (frontend shell, no new backend)
