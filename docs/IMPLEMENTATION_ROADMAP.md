@@ -143,8 +143,9 @@ E2E deferred (no browser in this environment) — the payload-replay gate is the
 
 ## M6 — Accounting feature gaps (backend + accounting-app screens, ordered by dependency)
 
-1. **Fixed assets** (register, categories, depreciation schedule + posting run) — isolated module, posts
-   through `postJournalInTx` only.
+1. ✅ **Fixed assets** (register, categories, depreciation schedule + posting run) — shipped 2026-10-16
+   (migration 0129 + `AssetsModule` + accounting-app screens; disposal deferred as out of roadmap scope).
+   Isolated module, posts through `postJournalInTx` only.
 2. **WIP stage for multi-step production** (per D-007 outcome: extend production engines or defer).
 3. **Standard costing / variance** (only if D-007 selects it; engine-level change — highest risk, needs its
    own reversibility + migration specs).

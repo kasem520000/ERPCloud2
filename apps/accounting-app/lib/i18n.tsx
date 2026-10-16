@@ -25,6 +25,7 @@ export const STRINGS: Record<string, DictEntry> = {
   'nav.trialBalance': { ar: 'ميزان المراجعة', en: 'Trial balance' },
   'nav.incomeStatement': { ar: 'قائمة الدخل', en: 'Income statement' },
   'nav.costCenters': { ar: 'مراكز التكلفة', en: 'Cost centres' },
+  'nav.assets': { ar: 'الأصول الثابتة', en: 'Fixed assets' },
   'nav.zatca': { ar: 'مكتب الزكاة والضريبة', en: 'ZATCA desk' },
   'nav.lang': { ar: 'اللغة', en: 'Language' },
   'nav.logout': { ar: 'تسجيل الخروج', en: 'Sign out' },
@@ -52,7 +53,7 @@ export const STRINGS: Record<string, DictEntry> = {
   'common.error': { ar: 'تعذر تحميل البيانات', en: 'Could not load the data' },
   'common.forbidden': { ar: 'لا تملك صلاحية عرض هذه الشاشة.', en: 'You do not have permission to view this screen.' },
   'common.empty': { ar: 'لا توجد بيانات لعرضها.', en: 'Nothing to show yet.' },
-  'common.readonly': { ar: 'قراءة فقط', en: 'Read-only' },
+  'common.readonly': { ar: 'معظمه قراءة', en: 'Mostly read-only' },
 
   'entitlement.title': { ar: 'التطبيق غير مفعّل لهذه المنشأة', en: 'This app is not enabled for your tenant' },
   'entitlement.body': {

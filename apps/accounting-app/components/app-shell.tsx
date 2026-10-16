@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
   BookOpen,
+  Boxes,
   CalendarRange,
   Coins,
   FileText,
@@ -28,6 +29,7 @@ const ICONS: Record<NavScreen['icon'], React.ComponentType<{ size?: number }>> =
   trial: Scale,
   income: Coins,
   cost: ShieldCheck,
+  assets: Boxes,
   zatca: FileText,
 };
 
@@ -117,8 +119,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="badge">{t('common.readonly')}</span>
             <span className="muted small">
               {lang === 'ar'
-                ? 'مرحلة الهيكل: الشاشات تقرأ بيانات المنشأة الحقيقية عبر نقاط النهاية القائمة'
-                : 'Scaffold milestone: screens read real tenant data through existing endpoints'}
+                ? 'الشاشات تقرأ بيانات المنشأة الحقيقية — والكتابة الوحيدة هي الأصول الثابتة: التسجيل والتصنيفات وتشغيل الإهلاك'
+                : 'Screens read real tenant data — the only writes are fixed assets: registration, categories, and the depreciation run'}
             </span>
           </div>
           <span className="muted small">{me?.membership.tenantName ?? ''}</span>

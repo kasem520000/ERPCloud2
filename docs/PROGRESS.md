@@ -556,3 +556,83 @@ pinned in the reversibility spec).
   `sync` event listener is a small, contract-compatible follow-up if the pilot needs it.
 - Browser E2E (Playwright) remains open for an environment with a browser; the acceptance
   specs pin the contract meanwhile.
+
+## 13. M6.1 — Fixed assets (register, categories, depreciation run) — implemented 2026-10-16
+
+### 13.1 What shipped
+
+- **Migration `0129_fixed_assets`** (+ `down/`): three additive, idempotent tables —
+  `asset_categories` (code + default life + the three posting accounts handed to its
+  assets), `fixed_assets` (the register; acquisition month = first depreciation month,
+  no separate in-service date; `method` column for forward-compatibility,
+  `status` active/fully_depreciated/disposed), `asset_depreciation_entries` (the run
+  ledger: one row per asset per month EVER — `UNIQUE (tenant_id, asset_id, period)` IS
+  the run's idempotency — each pointing at the journal entry that posted it). RLS
+  canonical policy on all three, `NOBYPASSRLS` re-asserted, `accounting.assets.*`
+  permission codes inserted ON CONFLICT. Accounts FK `ON DELETE RESTRICT` — a posting
+  account can never be orphaned. `down` drops the three tables only; posted journal
+  entries are the accountant's ledger and are never touched by a rollback.
+- **`AssetsModule`** (`apps/api/src/modules/assets/`): `FixedAssetsService` +
+  controller. Routes: GET/POST `/asset-categories` + PATCH `:id`; GET/POST
+  `/fixed-assets`, GET `:id`, GET `:id/schedule`; POST+GET
+  `/fixed-assets/depreciation-runs` (declared BEFORE the `:id` routes — Nest matches in
+  order). **Every depreciation posting goes through `AccountingService.postJournalInTx`
+  only** — balanced-entry, open-period and module-lock guards live in one place.
+  - Math: monthly = (cost − salvage)/life ROUND_HALF_UP 4dp; the LAST life month
+    absorbs the exact remainder so the total telescopes to cost − salvage precisely;
+    month 1 = acquisition month.
+  - `runDepreciation`: `resolvePostingContext` (default posting date = period end,
+    default branch), candidates locked `.for('update')`, declared skips (قبل تاريخ
+    الاقتناء / استوفى عمره الإهلاكي / مرحَّل مسبقًا / لا قسط مستحق), ONE journal
+    entry per run (sourceType `asset_depreciation`; no idempotencyKey — the
+    unique(asset, period) + row lock is the gate), 2 lines per asset (Dr expense,
+    Cr accumulated), `fully_depreciated` flip when posted months ≥ life.
+    `ASSET_ACCOUNTS_MISSING` 422 names the gap; account = asset override ?? category
+    default. Register/list computed fields (accumulated, NBV, depreciatedMonths) are
+    `SUM` over the ledger rows — never a second balance.
+- **accounting-app** (`apps/accounting-app`, first writing surface of the M3 scaffold):
+  `lib/assets.ts` (typed wrappers; the three writes live ONLY here — pages never touch
+  the API client; money stays decimal text end-to-end), `/assets` (register table +
+  run form with its declared-skip result + register & category forms, write forms
+  rendered only behind `can('accounting.assets.manage')` / `can('accounting.assets.depreciate')`
+  — the API enforces the same guard regardless), `/assets/[id]` (asset card + the
+  planned-vs-posted schedule with each month's journal number), navigation/i18n/badge
+  copy updated (`معظمه قراءة` — the topbar caption names the exact writes). The
+  instalment preview in the form mirrors the service math (HALF-UP 4dp) and is labelled
+  تقديري; the schedule endpoint remains the authoritative number.
+
+### 13.2 Verification
+
+- `apps/api`: `fixed-assets.spec.ts` 8/8 ✓ (validation & duplicates & foreign accounts;
+  tenant isolation; exact telescoping schedule; a run posts ONE balanced entry and moves
+  GL balances (pool SQL on `journal_entry_lines`); rerun no-op + next month; subset
+  `assetIds` + pre-acquisition skip (inside an opened prior FY) + malformed period 422;
+  `FISCAL_PERIOD_NOT_FOUND` for uncovered years + viewer read/run 403 split;
+  `fully_depreciated` flip after 24 months with post-life skip reason).
+  `migration-0129-reversibility.spec.ts` 4/4 ✓ (applied+idempotent+CHECK/unique
+  rejections incl. the (asset, period) gate; canonical RLS policy on all three tables;
+  down → `GET /fixed-assets` 500 → up → empty + other-tenant invisibility; 0124–0129
+  checksums match sha256(disk)).
+- accounting-app: 12/12 ✓ (6 scaffold — SCREENS now include `/assets`, M3 surfaces stay
+  read-only, the M6.1 writes concentrated in `lib/assets.ts` behind permission guards;
+  6 new — instalment preview math incl. HALF-UP and nonsense refusals, YYYY-MM
+  validation, status labels). Lint + typecheck clean.
+- Root lint/typecheck and the full suite run recorded in the session log (§13.4).
+
+### 13.3 Notes and deferrals
+
+- **Disposal is out of scope** (not in the roadmap's fixed-assets item): `status`
+  carries `disposed` for forward-compatibility, but no disposal route/posting exists —
+  a disposal entry is an accountant's manual JE until re-decided.
+- No idempotencyKey on the run's JE: the run is gated by the unique(asset, period)
+  constraint + candidate row locks inside one transaction; two concurrent runs for the
+  same month serialize and the second declares مرحَّل مسبقًا.
+- The register form inherits posting accounts from the category (asset-level override
+  exists in the API for migration/legacy cases but is deliberately not exposed in the
+  UI — one place to configure accounts).
+
+### 13.4 Full-suite gate
+
+- **Full apps/api suite: 205 files / 1709 tests, exit 0** (was 203/1697; +`fixed-assets`
+  8, +`migration-0129-reversibility` 4). Root `pnpm -r run lint` exit 0 and
+  `pnpm -r run typecheck` exit 0 — 14 workspaces. accounting-app suite 12/12 ✓.

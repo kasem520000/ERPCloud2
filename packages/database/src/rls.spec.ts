@@ -89,6 +89,10 @@ describe('RLS SQL builders (MULTI_TENANCY §3.5)', () => {
       'custom_reports',
       'offline_queue',
       'field_sync_queue',
+      // M6.1 — fixed assets (migration 0129).
+      'asset_categories',
+      'fixed_assets',
+      'asset_depreciation_entries',
       'payroll_compliance_settings',
       'payroll_wps_files',
       'payroll_gosi_files',

@@ -169,6 +169,10 @@ export const rlsProtectedTables = [
   'offline_queue',
   // M4 field-sync — replay ledger and conflict inbox for offline rep documents (0128).
   'field_sync_queue',
+  // M6.1 — fixed assets (migration 0129).
+  'asset_categories',
+  'fixed_assets',
+  'asset_depreciation_entries',
   // Future enhancement 07 — Mudad/GOSI files and online invoice payment links.
   'payroll_compliance_settings',
   'payroll_wps_files',

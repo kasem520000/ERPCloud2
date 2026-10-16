@@ -179,6 +179,10 @@ export const permissionRegistry: readonly PermissionDefinition[] = [
   perm('accounting.period.reopen', 'Reopen closed fiscal periods.'),
   perm('accounting.opening.manage', 'Import and post opening balances.'),
   perm('accounting.reports.view', 'Read trial balance, general ledger and statements.'),
+  // M6.1 — fixed assets (migration 0129): read / maintain / run the depreciation posting.
+  perm('accounting.assets.view', 'Read fixed-asset categories, the asset register, schedules and depreciation runs.'),
+  perm('accounting.assets.manage', 'Create and update fixed-asset categories and register assets.'),
+  perm('accounting.assets.depreciate', 'Run the monthly depreciation posting (creates journal entries).'),
 
   // parties (PHASE_11)
   perm('parties.view', 'List and read customers and suppliers.'),

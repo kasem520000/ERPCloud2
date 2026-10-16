@@ -28,6 +28,7 @@ describe('M3 scaffold — navigation registry', () => {
       '/trial-balance',
       '/income-statement',
       '/cost-centers',
+      '/assets',
       '/zatca',
     ]);
     for (const screen of SCREENS) {
@@ -68,7 +69,7 @@ describe('M3 scaffold — no public surfaces', () => {
     expect(matchesPrefix('/accountsX', '/accounts')).toBe(false);
   });
 
-  it('keeps the app read-only: the pages import the shared GET client, never apiPost/apiPatch/apiDelete', async () => {
+  it('keeps every M3 surface read-only: those pages never touch apiPost/apiPatch/apiDelete', async () => {
     for (const page of ['accounts', 'journals', 'periods', 'trial-balance', 'income-statement', 'cost-centers', 'zatca']) {
       const code = await source(`app/${page}/page.tsx`);
       expect(code, `${page} must not write`).not.toMatch(/\bapiPost\b|\bapiPatch\b|\bapiDelete\b/);
@@ -76,5 +77,22 @@ describe('M3 scaffold — no public surfaces', () => {
     const gate = await source('components/auth-gate.tsx');
     expect(gate).toContain('fetchAccountingEntitlement');
     expect(gate).toContain('LoginScreen');
+  });
+
+  it('concentrates the M6.1 writes in lib/assets.ts — pages never call the API client directly', async () => {
+    // الأصول الثابتة هي سطح الكتابة الوحيد (M6.1): كل عملياتها تمر عبر lib/assets.ts.
+    for (const page of ['assets/page', 'assets/[id]/page']) {
+      const code = await source(`app/${page}.tsx`);
+      expect(code, `${page} must not import the raw client`).not.toMatch(/\bapiPost\b|\bapiPatch\b|\bapiDelete\b|\bapiData\b/);
+      expect(code, `${page} must not fetch`).not.toMatch(/\bfetch\s*\(/);
+    }
+    const lib = await source('lib/assets.ts');
+    expect(lib).toContain("apiPost<AssetCategory>('/asset-categories'");
+    expect(lib).toContain("apiPost<FixedAsset>('/fixed-assets'");
+    expect(lib).toContain("apiPost<DepreciationRunResult>('/fixed-assets/depreciation-runs'");
+    // And the write forms render only behind the matching permission guard.
+    const register = await source('app/assets/page.tsx');
+    expect(register).toContain("can('accounting.assets.manage')");
+    expect(register).toContain("can('accounting.assets.depreciate')");
   });
 });
