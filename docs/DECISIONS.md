@@ -64,13 +64,16 @@
 
 ## D-006 — Rep app shell: PWA (web) first
 
-- **State:** PROPOSED, needs owner confirmation against distribution requirements.
+- **State:** DECIDED & IMPLEMENTED (2026-10-16, M5). The owner confirmed PWA-first by proceeding on the
+  explicit recommendation («سأبدأ M5 على أساس PWA… إلا إذا وجّهت غير ذلك» → «واصل»), and `apps/rep-app`
+  ships on it: installable manifest, service-worker app shell, IndexedDB snapshot/delta stores and the
+  queue-replay sync engine.
 - **Rationale:** the proven offline stack is browser-based (IndexedDB queue + sync engine, service-worker
   installable) **[V]**; app-store distribution or heavy native device use (printers, scanners) would justify
   React Native/Expo — the sync *contract* (snapshot/delta/replay through canonical engines) stays identical
   either way, so this decision is reversible without backend changes.
 - **Assumption to validate [A]:** target devices are modern Android/iOS browsers; thermal printing in the
-  field is via Bluetooth from a web print bridge or not required at pilot.
+  field is via Bluetooth from a web print bridge or not required at pilot. (Validated only at pilot — M7.)
 
 ## D-007 — Costing model: keep perpetual weighted average; add standard costing only as an explicit engine project
 
@@ -84,10 +87,16 @@
 
 ## D-008 — Open van-sales accounting policy decisions must be closed before settlement screens ship
 
-- **State:** PROPOSED (blocking for M5's closing UX).
-- **Evidence:** six policy decisions (shortage responsibility, damage thresholds, carry-over, …) are open in
-  `VAN_SALES_IMPLEMENTATION_AUDIT.md` §9 **[R]**; the engine already refuses silent settlement
-  (`pending_policy_approval`) **[V]**.
+- **State:** DECIDED for the rep-app UX scope (2026-10-16, M5): the six policy decisions
+  (shortage responsibility, damage thresholds, carry-over, … — `VAN_SALES_IMPLEMENTATION_AUDIT.md` §9)
+  stay per-tenant accountant decisions, taken case-by-case at `approveClosing`; the app NEVER decides
+  them. The rep-app closing screen ships on that boundary: counted-vs-expected side by side, an explicit
+  shortage acknowledgment before submit, and the difference lands as `pending_policy_approval` for the
+  accountant — nothing is deducted or settled silently (pinned by `apps/api/test/rep-app-day.spec.ts`).
+  The engine's refusal to settle silently stays the hard floor **[V]**.
+- **Evidence:** the engine already refuses silent settlement (`pending_policy_approval`) **[V]**; the
+  M5 acceptance spec replays the app's exact closing body end-to-end (clean count → shortage `0.0000`;
+  short count → shortage `2.0000` + `pending_policy_approval`) **[V]**.
 
 ## D-009 — Test gating must be proven to fail on red (R-19) before reuse claims rest on it
 

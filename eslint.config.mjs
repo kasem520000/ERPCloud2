@@ -115,6 +115,8 @@ export default [
       '**/apps/customer-portal/**/*.{ts,tsx}',
       '**/apps/accounting-app/**/*.{ts,tsx}',
       'apps/accounting-app/**/*.{ts,tsx}',
+      '**/apps/rep-app/**/*.{ts,tsx}',
+      'apps/rep-app/**/*.{ts,tsx}',
       '**/packages/ui/**/*.{ts,tsx}',
       'packages/ui/**/*.{ts,tsx}',
       '**/packages/web-core/**/*.{ts,tsx}',

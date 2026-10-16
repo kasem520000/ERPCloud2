@@ -116,14 +116,30 @@ the same van stock), `rep-workspace.spec.ts` (4), `migration-0128-reversibility.
 **Exit:** integration specs: offline replay of invoice+collection+return against the engines; conflict codes;
 isolation matrix; idempotent re-replay; concurrency on the same van stock.
 
-## M5 — Rep app (offline-first frontend)
+## M5 — Rep app (offline-first frontend) — ✅ IMPLEMENTED 2026-10-16
 
-- `apps/rep-app`: PWA per D-006 (installable, service worker, background sync where available).
-- Screens: login + snapshot sync, customer list with prices, van stock, invoice with bonus lines, receipt,
-  return, day closing, conflict inbox, offline queue status.
-- Custody UX: counted vs expected, explicit shortage policy submission (never silent).
-**Exit:** acceptance tests replaying the exact API payloads the app sends (the repo's established pattern when
-browser tests are unavailable); E2E in a browser when available.
+Implemented per plan (details and evidence in `PROGRESS.md` §12):
+
+1. ✅ `apps/rep-app` — PWA per D-006 (DECIDED): installable manifest, service-worker app shell
+   (network-first navigations, cached shell offline, `/api/*` never intercepted), auto-sync on mount /
+   `online` / 10s tick, phone-first five-tab shell with permission-filtered navigation.
+2. ✅ Offline store (native IndexedDB, no Dexie — the web-core arrangement, rep-shaped): snapshot saved
+   verbatim + watermark; delta applies `changed`/`deleted`/`full` exactly as the M4 contract frames them;
+   queue records carry the four operations; device-level monotonic sequence.
+3. ✅ Screens: login + rep-card gate (fail-open offline), sync (delta pull + full snapshot re-pull),
+   customers with THEIR prices (locked price, bonus caps, credit), van stock with honest projections
+   (pending ops move the numbers; conflicted ops move nothing), invoice with bonus lines + locked prices,
+   collection on server documents or this device's own invoices (`sourceOfflineId`), return, online-only
+   closing (counted vs expected + explicit shortage acknowledgment, D-008), conflict inbox with the
+   server's resolution hints and explicit retry, queue status.
+4. ✅ Custody UX: counted-vs-expected side by side; the difference is the shortage; submit stays disabled
+   until the rep acknowledges it goes to the accountant (`pending_policy_approval`) — never silent.
+**Exit met:** `apps/rep-app/tests/offline.spec.ts` (18) pins the payload builders against the M4 wire
+shapes + the store/delta/projection math; `apps/api/test/rep-app-day.spec.ts` (7) replays the app's exact
+payloads end-to-end through the real HTTP server (snapshot → one sequence-ordered batch: receipt → invoice
+with bonus → self-collection with voucher → return → idempotent retry → delta shows the effect → closing
+clean and short → day aggregation). Production build boots and serves every route + PWA assets. Browser
+E2E deferred (no browser in this environment) — the payload-replay gate is the repo's established proxy.
 
 ## M6 — Accounting feature gaps (backend + accounting-app screens, ordered by dependency)
 

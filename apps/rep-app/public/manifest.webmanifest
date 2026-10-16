@@ -1,0 +1,17 @@
+{
+  "name": "ERPCloud مندوب التوزيع",
+  "short_name": "ERP مندوب",
+  "description": "تطبيق مندوب التوزيع — بيع وتحصيل وإغلاق وردية بلا اتصال، ومزامنة عبر محركات النظام الرسمية",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#059669",
+  "categories": ["business", "finance"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

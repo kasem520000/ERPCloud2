@@ -488,3 +488,71 @@ pinned in the reversibility spec).
 - Offline *push* of price/customer creation from the device (rep adds a new customer in
   the field) is deliberately out of M4 scope — the snapshot's customers and prices are
   back-office facts; deferring keeps the replay to the four document operations.
+
+## 12. M5 — Rep app (offline-first frontend) — implemented 2026-10-16
+
+### 12.1 What shipped
+
+- **`apps/rep-app`** — the van-sales rep's offline-first PWA (D-006 DECIDED & IMPLEMENTED):
+  - **PWA**: `public/manifest.webmanifest` (standalone, RTL, `/` start), `public/sw.js`
+    (app-shell precache, network-first navigations with cached fallback, `/api/*` never
+    intercepted — the offline queue is the honest write path), registered from the root
+    layout. `sw.js` served `no-cache` + `Service-Worker-Allowed: /`.
+  - **Offline store** (`lib/offline/rep-db.ts`): native IndexedDB `erpcloud-rep-offline`
+    (no Dexie — the M2 web-core arrangement, rep-shaped). Snapshot saved verbatim +
+    watermark/rep card in `meta`; delta applies `changed` (upsert) / `deleted` (remove) /
+    `full` (clear+put) exactly as the M4 contract frames them; `customerPrices` keyed by a
+    composite string (array keyPaths reject `itemId: null` = "any item" rows).
+  - **Operation builders** (`lib/offline/ops.ts`): the four ops with the EXACT M4 replay
+    payloads; the server's remaining formula evaluated on the phone
+    (`COALESCE(NULLIF(received,0),loaded) − sold − bonus − returned − damaged`);
+    `projectedRemaining`/`projectedStock` move with THIS phone's pending ops (a conflicted
+    op moves nothing — it did not happen); `estimateInvoiceTotal` (VAT only for
+    `zatca_tax`) labelled تقديري everywhere.
+  - **Sync engine** (`lib/offline/rep-sync.ts`): pull (delta, falling back to snapshot on a
+    rejected `since`), push (`replay` batches ≤100 in sequence order), results merged back
+    (synced keeps server ids/numbers; conflict keeps errorCode/message/resolution), retry
+    only by explicit action, auto-sync on mount/`online`/10s, server queue inbox read.
+  - **Screens** (9 routes, phone-first five-tab shell, permission-gated per the M4 route
+    codes): home, sync, customers with their prices, van stock + receipt confirmation,
+    invoice (locked prices, bonus caps, estimate), collection (`documentId` or
+    `sourceOfflineId` + `cashLocationId` from the snapshot's default cash method), return,
+    **online-only closing** (counted-vs-expected, explicit shortage acknowledgment — D-008),
+    queue + conflict inbox.
+  - **Rep gate**: `GET /field-sync/queue` probe — definitive 403 (D-004 guard) explains and
+    blocks; network errors fail OPEN (an offline rep must reach his cached data).
+  - **Sign-out wipes the device store** — the next rep on a shared phone starts clean.
+
+### 12.2 Verification
+
+- `apps/rep-app`: 18/18 specs ✓ (payload builders vs the M4 wire shapes; snapshot/delta
+  round-trips; projections; sequence monotonicity; replay merge; navigation/permission/
+  i18n/AUD-13 invariants), typecheck ✓, lint ✓, production build ✓ (all routes static),
+  `next start` serves every route + PWA assets (200s, headers verified).
+- **Acceptance gate** `apps/api/test/rep-app-day.spec.ts` (7/7 ✓): the app's exact payloads
+  through the real HTTP server — snapshot pull → one sequence-ordered batch (receipt →
+  invoice with bonus → collection with voucher → return) → idempotent whole-batch retry →
+  delta shows the effect → closing with the app's exact body (clean: shortage 0; short:
+  shortage 2.0000 + `pending_policy_approval`) → day aggregation.
+- **The gate caught a real app bug**: collections without `cashLocationId` recorded the
+  movement but no receipt voucher — the app now resolves the cash location from the
+  snapshot's default cash payment method (both collection and cash-sale payloads).
+- Neighbours: field-sync 11/11 ✓, rep-workspace 4/4 ✓, exit-code gate ✓ (after building
+  `@erp/testing`'s dist — this fresh environment had none; the dist chain
+  contracts→config→database→testing is pre-existing, unrelated to M5).
+- **Full apps/api suite: 203 files / 1697 tests, exit 0** (was 202/1690; +`rep-app-day`
+  7). Root `pnpm -r run lint` exit 0 and `pnpm -r run typecheck` exit 0 — 14 workspaces
+  (rep-app the new fourteenth).
+- D-006 → DECIDED & IMPLEMENTED; D-008 → DECIDED for the UX scope (the app surfaces, the
+  accountant decides; nothing settles silently). Browser E2E deferred (no browser here) —
+  the payload-replay gate is the repo's established proxy, per the roadmap's exit note.
+
+### 12.3 Notes and deferrals
+
+- Offline *push* of new customers/prices from the device stays out of scope (M4 note
+  unchanged): the snapshot's catalog rows are back-office facts.
+- Background Sync API (true background replay when the app is closed) is not used — the
+  service worker caches the shell and the app syncs when open/online; adding a
+  `sync` event listener is a small, contract-compatible follow-up if the pilot needs it.
+- Browser E2E (Playwright) remains open for an environment with a browser; the acceptance
+  specs pin the contract meanwhile.

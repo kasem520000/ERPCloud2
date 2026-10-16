@@ -1,0 +1,36 @@
+{
+  "name": "@erp/rep-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@erp/contracts": "workspace:*",
+    "@erp/ui": "workspace:*",
+    "@erp/web-core": "workspace:*",
+    "@fontsource/tajawal": "^5",
+    "@fontsource-variable/inter": "^5",
+    "decimal.js": "^10.6.0",
+    "lucide-react": "^0.400.0",
+    "next": "^15.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "eslint-config-next": "^15.5.4",
+    "fake-indexeddb": "^6.0.0",
+    "happy-dom": "^15.11.7",
+    "tailwindcss": "^4.1.0",
+    "vitest": "^2.1.9"
+  },
+  "scripts": {
+    "dev": "node ../../scripts/next-run.mjs rep-app dev",
+    "build": "next build",
+    "lint": "eslint app components lib tests next.config.mjs --config ../../eslint.config.mjs",
+    "test": "vitest run",
+    "start": "node ../../scripts/next-run.mjs rep-app start",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}
