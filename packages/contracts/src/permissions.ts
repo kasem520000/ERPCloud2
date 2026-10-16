@@ -183,6 +183,9 @@ export const permissionRegistry: readonly PermissionDefinition[] = [
   perm('accounting.assets.view', 'Read fixed-asset categories, the asset register, schedules and depreciation runs.'),
   perm('accounting.assets.manage', 'Create and update fixed-asset categories and register assets.'),
   perm('accounting.assets.depreciate', 'Run the monthly depreciation posting (creates journal entries).'),
+  // M6.4 — budgets (migration 0131): read / maintain budgets and their variance report.
+  perm('accounting.budget.view', 'Read budgets and the budget-versus-actual report.'),
+  perm('accounting.budget.manage', 'Create, update, approve and delete draft budgets.'),
 
   // parties (PHASE_11)
   perm('parties.view', 'List and read customers and suppliers.'),

@@ -14,6 +14,7 @@ import {
   LogOut,
   Scale,
   ShieldCheck,
+  Target,
 } from 'lucide-react';
 import { ThemeToggle } from '@erp/ui/theme';
 import { useSession } from '@erp/web-core/session';
@@ -30,6 +31,7 @@ const ICONS: Record<NavScreen['icon'], React.ComponentType<{ size?: number }>> =
   income: Coins,
   cost: ShieldCheck,
   assets: Boxes,
+  budgets: Target,
   zatca: FileText,
 };
 
@@ -119,8 +121,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="badge">{t('common.readonly')}</span>
             <span className="muted small">
               {lang === 'ar'
-                ? 'الشاشات تقرأ بيانات المنشأة الحقيقية — والكتابة الوحيدة هي الأصول الثابتة: التسجيل والتصنيفات وتشغيل الإهلاك'
-                : 'Screens read real tenant data — the only writes are fixed assets: registration, categories, and the depreciation run'}
+                ? 'الشاشات تقرأ بيانات المنشأة الحقيقية — والكتابة الوحيدة هي الأصول الثابتة والموازنات'
+                : 'Screens read real tenant data — the only writes are fixed assets and budgets'}
             </span>
           </div>
           <span className="muted small">{me?.membership.tenantName ?? ''}</span>

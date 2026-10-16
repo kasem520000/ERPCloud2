@@ -3,9 +3,9 @@
  * API permission that guards its endpoints. The shell hides a screen the session
  * cannot view (`useSession().can`), mirroring how the staff panel treats permissions.
  *
- * M3 was read-only by design; M6.1 adds the first writing surface — `/assets`
- * (register, categories, and the depreciation run), guarded per write by
- * `accounting.assets.manage` / `accounting.assets.depreciate` on the API side.
+ * M3 was read-only by design; M6.1 added the first writing surface (`/assets`) and
+ * M6.4 the second (`/budgets`), each guarded per write on the API side
+ * (`accounting.assets.*` / `accounting.budget.*`).
  */
 
 export type NavScreen = {
@@ -14,7 +14,7 @@ export type NavScreen = {
   labelEn: string;
   /** `RequiresPermission` code the screen's GET endpoints demand. */
   permission: string;
-  icon: 'home' | 'accounts' | 'journals' | 'periods' | 'trial' | 'income' | 'cost' | 'assets' | 'zatca';
+  icon: 'home' | 'accounts' | 'journals' | 'periods' | 'trial' | 'income' | 'cost' | 'assets' | 'budgets' | 'zatca';
 };
 
 export const SCREENS: readonly NavScreen[] = [
@@ -26,6 +26,7 @@ export const SCREENS: readonly NavScreen[] = [
   { href: '/income-statement', labelAr: 'قائمة الدخل', labelEn: 'Income statement', permission: 'accounting.reports.view', icon: 'income' },
   { href: '/cost-centers', labelAr: 'مراكز التكلفة', labelEn: 'Cost centres', permission: 'accounting.account.view', icon: 'cost' },
   { href: '/assets', labelAr: 'الأصول الثابتة', labelEn: 'Fixed assets', permission: 'accounting.assets.view', icon: 'assets' },
+  { href: '/budgets', labelAr: 'الموازنات', labelEn: 'Budgets', permission: 'accounting.budget.view', icon: 'budgets' },
   { href: '/zatca', labelAr: 'مكتب الزكاة والضريبة', labelEn: 'ZATCA desk', permission: 'einvoice.view', icon: 'zatca' },
 ];
 

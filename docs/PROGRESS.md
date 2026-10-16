@@ -713,3 +713,71 @@ posting-profile vocabulary. That moment now exists:
 - **Full apps/api suite: 207 files / 1721 tests, exit 0** (was 205/1709; +`production-wip`
   9, +`migration-0130-reversibility` 3). Root `pnpm -r run lint` exit 0 and
   `pnpm -r run typecheck` exit 0 — 14 workspaces. staff suite 87/87 ✓.
+
+## 15. M6.4 — Budgets & budget-vs-actual — implemented 2026-10-16
+
+### 15.1 What shipped
+
+M6.3 (standard costing) stays gated on the owner's D-007 decision; M6.4 depends on GL +
+reporting only and shipped next per the roadmap's dependency order.
+
+- **Migration `0131_budgets`** (+ `down/`): two additive tables — `budgets` (name unique
+  per tenant + fiscal year, `draft | approved`, audit + soft delete + legacy) and
+  `budget_lines` (`(budget, account, fiscal_period)` unique, `amount >= 0`). Canonical
+  RLS on both, `NOBYPASSRLS` re-asserted, `accounting.budget.view/manage` inserted
+  idempotently. Down drops the tables; the ledger is untouched (budgets never post).
+- **`BudgetsModule`** (standalone — imports nothing from AccountingModule because it
+  only *reads* the chart, the fiscal calendar and the posted ledger):
+  - `POST /budgets` takes the **annual** amount per postable account and distributes it
+    across the year's periods: even instalment, HALF-UP 4dp, the last period carries the
+    exact remainder — the same telescoping rule as the fixed-asset schedule (M6.1).
+  - `PATCH /budgets/:id` — rename/notes; `status: 'approved'` freezes (409
+    `BUDGET_APPROVED_FROZEN` on any later line change); `lines` replaces the monthly rows
+    completely (same full-replacement contract as the posting-profile map) for
+    seasonality, draft only, periods of the budget's own year only.
+  - `DELETE /budgets/:id` — draft only, soft delete; an approved budget is a measured
+    plan and stays.
+  - `GET /budgets/:id/variance?to=` — **computed, never stored**: budget side = SUM of
+    lines in fully-elapsed periods (`period.end_date <= to`); actual side = posted-entry
+    movement over `[FY start, to]` signed by the account's normal balance (the trial
+    balance's own reading). Rows include unbudgeted accounts with actual movement
+    (`inBudget: false`); `totals` = نتيجة الموازنة over revenue + expense only
+    (budgeted result vs actual result vs variance). `to` defaults to the FY end and is
+    clamped to it.
+- **accounting-app**: `/budgets` (list + create form with per-account annual amounts and
+  a distribution preview labelled تقديري + approve/delete-draft behind
+  `accounting.budget.manage`) and `/budgets/[id]` (the variance table with the accountant's
+  tone reading — under-budget spending good for expenses, over-budget revenue good for
+  income — plus the نتيجة الموازنة totals row and the monthly lines in a collapsible).
+  Writes live only in `lib/budgets.ts` (same contract as assets).
+
+### 15.2 Verification
+
+- `apps/api`: `budgets.spec.ts` 6/6 ✓ (distribution with exact telescoping incl.
+  100÷12 → 8.3333×11 + 8.3337; duplicate-name 409 + tenant isolation; monthly replace +
+  wrong-year period 422 + approval freeze incl. delete refusal; variance with a January
+  `to` cutoff vs full-year, unbudgeted actuals visible, clamped `to`, نتيجة الموازنة
+  totals; soft delete of a draft; viewer read/write split).
+  `migration-0131-reversibility.spec.ts` 4/4 ✓ (applied + idempotent + CHECK/unique
+  rejections; canonical RLS on both tables; down → `GET /budgets` 500 → up → empty +
+  other-tenant invisibility; 0126–0131 checksums).
+- accounting-app: 17/17 ✓ (scaffold — SCREENS with `/budgets`, M3 surfaces still
+  read-only, M6.1+M6.4 writes concentrated in their libs behind permission guards; 5 new
+  — distribution preview mirroring the server math, variance tone, status labels).
+  Lint + typecheck clean.
+- Full-suite gate recorded in §15.4.
+
+### 15.3 Notes and deferrals
+
+- Budget **approval workflow** (the approvals module) is deferred: approval here is a
+  single manage action that freezes; routing it through approvers is a product decision.
+- **Budget revisions** (a v2 next to an approved budget) are deferred: an approved budget
+  that must change gets a sibling budget — explicit history beats silent edits.
+- **Branch/cost-centre dimension** on budget lines is deferred: the FY/account/period
+  grain first; dimensions are additive columns later if a pilot needs them.
+
+### 15.4 Full-suite gate
+
+- **Full apps/api suite: 209 files / 1731 tests, exit 0** (was 207/1721; +`budgets` 6,
+  +`migration-0131-reversibility` 4). Root `pnpm -r run lint` exit 0 and
+  `pnpm -r run typecheck` exit 0 — 14 workspaces. accounting-app suite 17/17 ✓.

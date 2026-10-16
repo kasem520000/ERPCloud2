@@ -93,6 +93,9 @@ describe('RLS SQL builders (MULTI_TENANCY §3.5)', () => {
       'asset_categories',
       'fixed_assets',
       'asset_depreciation_entries',
+      // M6.4 — budgets (migration 0131).
+      'budgets',
+      'budget_lines',
       'payroll_compliance_settings',
       'payroll_wps_files',
       'payroll_gosi_files',

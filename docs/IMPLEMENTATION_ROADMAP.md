@@ -151,7 +151,9 @@ E2E deferred (no browser in this environment) — the payload-replay gate is the
    production-orders engine, `wipAccountId` posting key, migration 0130.
 3. **Standard costing / variance** (only if D-007 selects it; engine-level change — highest risk, needs its
    own reversibility + migration specs).
-4. **Budgets & budget-vs-actual** (depends on GL + reporting only).
+4. ✅ **Budgets & budget-vs-actual** — shipped 2026-10-16: migration 0131 + `BudgetsModule`
+   (draft/approved lifecycle, monthly distribution, computed variance report) +
+   accounting-app screens. No stored second balance; approval freezes.
 5. **Bank reconciliation desk** (extend import+match+report toward reviewable match → post flow).
 Each item: migration + service + specs + accounting-app screens, shipped independently.
 **Exit:** per-feature acceptance specs; GL integrity suite (trial balance, reversal consistency) stays green.

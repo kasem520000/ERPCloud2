@@ -26,6 +26,7 @@ export const STRINGS: Record<string, DictEntry> = {
   'nav.incomeStatement': { ar: 'قائمة الدخل', en: 'Income statement' },
   'nav.costCenters': { ar: 'مراكز التكلفة', en: 'Cost centres' },
   'nav.assets': { ar: 'الأصول الثابتة', en: 'Fixed assets' },
+  'nav.budgets': { ar: 'الموازنات', en: 'Budgets' },
   'nav.zatca': { ar: 'مكتب الزكاة والضريبة', en: 'ZATCA desk' },
   'nav.lang': { ar: 'اللغة', en: 'Language' },
   'nav.logout': { ar: 'تسجيل الخروج', en: 'Sign out' },

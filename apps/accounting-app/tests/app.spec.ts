@@ -29,6 +29,7 @@ describe('M3 scaffold — navigation registry', () => {
       '/income-statement',
       '/cost-centers',
       '/assets',
+      '/budgets',
       '/zatca',
     ]);
     for (const screen of SCREENS) {
@@ -79,9 +80,9 @@ describe('M3 scaffold — no public surfaces', () => {
     expect(gate).toContain('LoginScreen');
   });
 
-  it('concentrates the M6.1 writes in lib/assets.ts — pages never call the API client directly', async () => {
-    // الأصول الثابتة هي سطح الكتابة الوحيد (M6.1): كل عملياتها تمر عبر lib/assets.ts.
-    for (const page of ['assets/page', 'assets/[id]/page']) {
+  it('concentrates the M6.1+M6.4 writes in lib/assets.ts and lib/budgets.ts — pages never call the API client directly', async () => {
+    // الأصول الثابتة (M6.1) والموازنات (M6.4) هما سطلا الكتابة: كل عملياتهما عبر الـlib.
+    for (const page of ['assets/page', 'assets/[id]/page', 'budgets/page', 'budgets/[id]/page']) {
       const code = await source(`app/${page}.tsx`);
       expect(code, `${page} must not import the raw client`).not.toMatch(/\bapiPost\b|\bapiPatch\b|\bapiDelete\b|\bapiData\b/);
       expect(code, `${page} must not fetch`).not.toMatch(/\bfetch\s*\(/);
@@ -90,9 +91,14 @@ describe('M3 scaffold — no public surfaces', () => {
     expect(lib).toContain("apiPost<AssetCategory>('/asset-categories'");
     expect(lib).toContain("apiPost<FixedAsset>('/fixed-assets'");
     expect(lib).toContain("apiPost<DepreciationRunResult>('/fixed-assets/depreciation-runs'");
+    const budgetsLib = await source('lib/budgets.ts');
+    expect(budgetsLib).toContain("apiPost<BudgetCard>('/budgets'");
+    expect(budgetsLib).toContain("apiPatch<BudgetCard>(`/budgets/${encodeURIComponent(id)}`, { status: 'approved' })");
     // And the write forms render only behind the matching permission guard.
     const register = await source('app/assets/page.tsx');
     expect(register).toContain("can('accounting.assets.manage')");
     expect(register).toContain("can('accounting.assets.depreciate')");
+    const budgetsPage = await source('app/budgets/page.tsx');
+    expect(budgetsPage).toContain("can('accounting.budget.manage')");
   });
 });

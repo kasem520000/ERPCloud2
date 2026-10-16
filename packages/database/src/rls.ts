@@ -173,6 +173,9 @@ export const rlsProtectedTables = [
   'asset_categories',
   'fixed_assets',
   'asset_depreciation_entries',
+  // M6.4 — budgets (migration 0131).
+  'budgets',
+  'budget_lines',
   // Future enhancement 07 — Mudad/GOSI files and online invoice payment links.
   'payroll_compliance_settings',
   'payroll_wps_files',

@@ -32,6 +32,7 @@ import { ImpersonationGuard } from './modules/support/impersonation.guard.js';
 import { PlatformAdminModule } from './modules/platform/admin/platform-admin.module.js';
 import { AccountingModule } from './modules/accounting/accounting.module.js';
 import { AssetsModule } from './modules/assets/assets.module.js';
+import { BudgetsModule } from './modules/budgets/budgets.module.js';
 import { ApprovalModule } from './modules/approvals/approvals.module.js';
 import { OrganizationModule } from './modules/organization/index.js';
 import { PartiesModule } from './modules/parties/parties.module.js';
@@ -125,6 +126,7 @@ import { OpsModule } from './ops/ops.module.js';
     CatalogModule,
     AccountingModule,
     AssetsModule,
+    BudgetsModule,
     ApprovalModule,
     PartiesModule,
     InventoryModule,
