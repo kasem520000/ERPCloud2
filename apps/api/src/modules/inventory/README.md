@@ -17,18 +17,29 @@ and covered by `inventory-documents.spec.ts`, `inventory-serials.spec.ts`,
 `inventory-document-serials.spec.ts` and `inventory-batch-line.spec.ts` — see the phase 05
 section of `docs/desktop-parity/PHASE_05_INVENTORY.md` for the sources and the rules.
 
-## Production orders (`/inventory/production-orders`, migration 0027)
+## Production orders (`/inventory/production-orders`, migrations 0027 + 0130)
 
-أمر الإنتاج: components out, one finished item in, in a single transaction. Components
+أمر الإنتاج: components out, one finished item in — **in one step or two** (M6.2). Components
 leave at the warehouse's moving average; the output is valued at exactly the total that
 left divided by the produced quantity, so inventory value is conserved and the document
-raises **no journal entry**. Guards: the output cannot be its own component, a component
-cannot repeat, and completion fails with `STOCK_INSUFFICIENT` instead of driving stock
-negative. Only a draft order can be completed or cancelled — a completed order is reversed
-with a stock adjustment, not by rewriting it.
+raises **no journal entry** by default. Guards: the output cannot be its own component, a
+component cannot repeat, and completion fails with `STOCK_INSUFFICIENT` instead of driving
+stock negative. Only a draft order can be completed or cancelled — a completed order is
+reversed with a stock adjustment, not by rewriting it.
+
+**M6.2 — تحت التشغيل (WIP):** `POST :id/issue` صرف المكوّنات إلى الأرضية الآن
+(`draft → in_progress`)، والإكمال يستلم الناتج لاحقًا بتكلفة ما صُرف (`complete`
+يستقبل المسارين). المسار المباشر الموروث كما هو — لا سلوك يتغير لمنشأة قائمة.
+الربط المحاسبي عبر `wipAccountId` (`production-posting.ts`): الصرف بلا الحساب محايد
+والإكمال يرحّل الزوج الكامل «منتج تام ← مواد خام» كما كان؛ به يصبح الصرف «تحت
+التشغيل ← مواد خام» والإكمال «منتج تام ← تحت التشغيل»، وفكّ الحساب بين الخطوتين
+مرفوض (`PRODUCTION_WIP_MAPPING_CHANGED`) — لا تُخصم المواد مرتين. الأمر المصروف لا
+يُلغى: مكوّناته خرجت ويجب أن يُستكمل. الإنتاج متعدد المراحل الحقيقي (شبه منتج ثم
+تشطيب) يُبنى بأوامر متسلسلة — ناتج الأمر الأول مكوّنٌ في الثاني، وهو مدعوم أصلًا.
 
 Permissions: `inventory.view`, `inventory.production.manage` (create/cancel),
-`inventory.production.complete` (move the stock). Report key: `production-orders`.
+`inventory.production.complete` (move the stock — completing **and** issuing, both are
+the financial act). Report key: `production-orders`.
 
 ## The batch on the document line (R5, migration 0088)
 

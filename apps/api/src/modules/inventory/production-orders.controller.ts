@@ -29,8 +29,19 @@ export class ProductionOrdersController {
   }
 
   /**
-   * إكمال الأمر = صرف المكوّنات واستلام الناتج. `outputLotNo` يسمّي دفعة الناتج (اللوت) حين
-   * يكون الصنف يُتتبَّع بالدفعات، وإلا كان رقم الأمر هو الدفعة.
+   * 🏭 M6.2 — الصرف إلى الأرضية: المكوّنات تخرج الآن والناتج يُستلم لاحقًا في `complete`.
+   * يحرّك مخزونًا كالإكمال، فله صلاحيته (inventory.production.complete) لا صلاحية كتابة
+   * الوصفات (manage): كتابة الوصفة تخطيط، وصرف المستودع قرينة مالية.
+   */
+  @Post(':id/issue') @RequiresPermission('inventory.production.complete')
+  issue(@Param('id') id: string) {
+    return this.production.issue(getTenantContext().tenantId, id).then((data) => ({ data }));
+  }
+
+  /**
+   * إكمال الأمر = صرف المكوّنات واستلام الناتج (أو استلام الناتج وحده إن كان الأمر
+   * مصروفًا إلى الأرضية). `outputLotNo` يسمّي دفعة الناتج (اللوت) حين يكون الصنف يُتتبَّع
+   * بالدفعات، وإلا كان رقم الأمر هو الدفعة.
    */
   @Post(':id/complete') @RequiresPermission('inventory.production.complete')
   complete(

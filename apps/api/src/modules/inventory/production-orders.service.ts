@@ -51,6 +51,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 /**
  * أمر الإنتاج — turn components into a finished item.
  *
+ * **M6.2 — إنتاج على مرحلتين:** `issue()` تصرف المكوّنات إلى الأرضية (draft →
+ * in_progress) ويستلم `complete()` الناتج لاحقًا بتكلفة ما صُرف فعلاً. المسار الموروث
+ * (draft → complete مباشرة) كما هو: لا سلوك يتغير لمنشأة قائمة. وقيمة المكوّنات بين
+ * الخطوتين هي «تحت التشغيل» إن ربطت المنشأة `wipAccountId` — انظر `production-posting.ts`.
+ *
  * The order is ledger-neutral **by default**: whatever value leaves the warehouse as
  * components re-enters it as the produced item, so with one inventory control account the
  * balance sheet does not move and no journal entry is owed. A tenant that keeps materials and
@@ -171,29 +176,51 @@ export class ProductionOrdersService {
    * received without one — see `production-output-lot.ts`); left out, the order's own number is
    * the lot.
    */
+  /**
+   * 🏭 M6.2 — الصرف إلى الأرضية: المكوّنات تخرج من المستودع بالمتوسط المتحرك، ويبقى
+   * الأمر `in_progress` حتى يستلم `complete()` الناتج. القيمة الخارجة هي تكلفة الأمر
+   * (componentCost)، وهي أيضًا ما يُرحَّل «تحت التشغيل ← مواد خام» إن رُبط الحسابان.
+   */
+  async issue(tenantId: string, id: string) {
+    return withTenantTx(this.database.db, tenantId, async (tx) => {
+      const order = await this.load(tx, tenantId, id);
+      if (order.status !== 'draft') throw new DomainError('PRODUCTION_ORDER_INVALID_STATUS', 'Only a draft production order can be issued to the floor', 409);
+
+      const componentCost = await this.consumeComponents(tx, tenantId, id, order);
+
+      const [warehouseRow] = await tx.select({ branchId: warehouses.branchId }).from(warehouses).where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, order.warehouseId)));
+      const posting = await postProductionJournalInTx(tx, tenantId, {
+        accounting: this.accounting,
+        profiles: this.profiles,
+      }, {
+        docType: 'production_order',
+        orderId: id,
+        orderNumber: order.number,
+        branchId: order.branchId ?? warehouseRow?.branchId ?? null,
+        consumedValue: componentCost,
+        stepKey: 'issue',
+        stage: 'issue',
+      });
+
+      await tx.update(productionOrders)
+        .set({ status: 'in_progress', issuedAt: new Date(), componentCost: componentCost.toFixed(4), wipPosted: posting.journalEntryId !== null, updatedAt: new Date(), updatedBy: tryGetAuthContext()?.userId })
+        .where(and(eq(productionOrders.tenantId, tenantId), eq(productionOrders.id, id)));
+
+      return { ...(await this.load(tx, tenantId, id)), ...posting };
+    });
+  }
+
   async complete(tenantId: string, id: string, options: { outputLot?: OutputLotInput } = {}) {
     return withTenantTx(this.database.db, tenantId, async (tx) => {
       const order = await this.load(tx, tenantId, id);
-      if (order.status !== 'draft') throw new DomainError('PRODUCTION_ORDER_INVALID_STATUS', 'Only a draft production order can be completed', 409);
+      if (order.status !== 'draft' && order.status !== 'in_progress')
+        throw new DomainError('PRODUCTION_ORDER_INVALID_STATUS', 'Only a draft or issued production order can be completed', 409);
 
-      const out = await this.inventory.recordInTx(tx, tenantId, order.components.map((component) => ({
-        itemId: component.itemId,
-        warehouseId: order.warehouseId,
-        qty: component.qty,
-        unitId: component.unitId ?? undefined,
-        direction: 'out' as const,
-        docType: 'production_order',
-        docId: id,
-        // `line_id` is a uuid column, and the item is the natural line key here: the
-        // unique (tenant, doc_type, doc_id, line_id) index then means "one movement per
-        // item per order", which is exactly the guarantee this document wants.
-        lineId: component.itemId,
-      })));
-
-      // Read back what the moving average actually charged; the cost of the output is not
-      // a guess, it is the sum of what left the shelf.
-      const consumed = await tx.select().from(inventoryTransactions).where(and(eq(inventoryTransactions.tenantId, tenantId), inArray(inventoryTransactions.id, out.transactionIds)));
-      const componentCost = consumed.reduce((sum, row) => sum.plus(dec(row.totalCost)), new Decimal(0));
+      /** الصرف حدث في `issue()` — لا يُستهلك شيء مرتين؛ القيمة مجتمعة على الأمر نفسه. */
+      const componentCost =
+        order.status === 'in_progress'
+          ? dec(order.componentCost)
+          : await this.consumeComponents(tx, tenantId, id, order);
       const unitCost = componentCost.div(dec(order.outputQty));
 
       // 🏷️ الناتج صنفٌ يُتتبَّع بالدفعات؟ الدفعة تُحسم هنا (رقمُ المستدعي أو رقم الأمر) —
@@ -217,13 +244,6 @@ export class ProductionOrdersService {
         lineId: order.outputItemId,
       }]);
 
-      for (const row of consumed) {
-        const component = order.components.find((line) => line.itemId === row.itemId);
-        if (!component) continue;
-        await tx.update(productionOrderComponents)
-          .set({ unitCost: row.unitCost, lineCost: row.totalCost })
-          .where(and(eq(productionOrderComponents.tenantId, tenantId), eq(productionOrderComponents.orderId, id), eq(productionOrderComponents.lineNo, component.lineNo)));
-      }
       await tx.update(productionOrders)
         .set({ status: 'completed', completedAt: new Date(), componentCost: componentCost.toFixed(4), unitCost: unitCost.toFixed(4), updatedAt: new Date(), updatedBy: tryGetAuthContext()?.userId })
         .where(and(eq(productionOrders.tenantId, tenantId), eq(productionOrders.id, id)));
@@ -235,6 +255,9 @@ export class ProductionOrdersService {
        * الناتج (`unitCost = componentCost / outputQty`)، فالقيد — إن رُبط حساباه — ينقل القيمة
        * نفسها من المواد الخام إلى المنتج التام بلا رقمٍ مُخترع. والأمر يُكمل مرة واحدة
        * (الحالة `draft` وحدها تُكمل) فالمفتاح ثابت.
+       *
+       * M6.2: على أمرٍ مصروف (`in_progress`) يكون الصرف قد رُحِّل «تحت التشغيل ← مواد خام»
+       * إن كان `wipPosted`، فيصفّي هذا القيد القيمةَ من حيث دخلت: «منتج تام ← تحت التشغيل».
        */
       const [warehouseRow] = await tx.select({ branchId: warehouses.branchId }).from(warehouses).where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, order.warehouseId)));
       const posting = await postProductionJournalInTx(tx, tenantId, {
@@ -247,18 +270,57 @@ export class ProductionOrdersService {
         branchId: order.branchId ?? warehouseRow?.branchId ?? null,
         consumedValue: componentCost,
         stepKey: 'complete',
+        stage: 'complete',
+        wipPosted: order.wipPosted,
       });
 
       return { ...(await this.load(tx, tenantId, id)), ...posting };
     });
   }
 
+  /**
+   * الاستهلاك المشترك للمسارين: يصرف كل المكوّنات بالمتوسط المتحرك، يقيّد تكلفتها على
+   * سطور الأمر، ويعيد إجمالي ما خرج من الرفّ فعلاً. `lineId` هو الصنف نفسه — فهرس التفرد
+   * (tenant, doc_type, doc_id, line_id) يعني «حركة واحدة لكل صنف في الأمر»، وهو الضمان
+   * الذي يمنع استهلاكًا مزدوجًا بين `issue` و`complete`.
+   */
+  private async consumeComponents(
+    tx: DrizzleTx,
+    tenantId: string,
+    id: string,
+    order: Awaited<ReturnType<ProductionOrdersService['load']>>,
+  ): Promise<Decimal> {
+    const out = await this.inventory.recordInTx(tx, tenantId, order.components.map((component) => ({
+      itemId: component.itemId,
+      warehouseId: order.warehouseId,
+      qty: component.qty,
+      unitId: component.unitId ?? undefined,
+      direction: 'out' as const,
+      docType: 'production_order',
+      docId: id,
+      lineId: component.itemId,
+    })));
+
+    // Read back what the moving average actually charged; the cost of the output is not
+    // a guess, it is the sum of what left the shelf.
+    const consumed = await tx.select().from(inventoryTransactions).where(and(eq(inventoryTransactions.tenantId, tenantId), inArray(inventoryTransactions.id, out.transactionIds)));
+    for (const row of consumed) {
+      const component = order.components.find((line) => line.itemId === row.itemId);
+      if (!component) continue;
+      await tx.update(productionOrderComponents)
+        .set({ unitCost: row.unitCost, lineCost: row.totalCost })
+        .where(and(eq(productionOrderComponents.tenantId, tenantId), eq(productionOrderComponents.orderId, id), eq(productionOrderComponents.lineNo, component.lineNo)));
+    }
+    return consumed.reduce((sum, row) => sum.plus(dec(row.totalCost)), new Decimal(0));
+  }
+
   async cancel(tenantId: string, id: string) {
     return withTenantTx(this.database.db, tenantId, async (tx) => {
       const order = await this.load(tx, tenantId, id);
-      // Stock has already moved on a completed order; reverse it with an adjustment, not
-      // by rewriting history.
-      if (order.status !== 'draft') throw new DomainError('PRODUCTION_ORDER_INVALID_STATUS', 'Only a draft production order can be cancelled', 409);
+      // Stock has already moved — on a completed order as the output, on an issued order
+      // as the components on the floor; either way you reverse it with an adjustment, not
+      // by rewriting history. An issued order must run to its completion.
+      if (order.status !== 'draft') throw new DomainError('PRODUCTION_ORDER_INVALID_STATUS', 'Only a draft production order can be cancelled — an issued order already moved its components to the floor and must be completed', 409);
       await tx.update(productionOrders)
         .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date(), updatedBy: tryGetAuthContext()?.userId })
         .where(and(eq(productionOrders.tenantId, tenantId), eq(productionOrders.id, id)));

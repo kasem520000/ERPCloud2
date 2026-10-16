@@ -146,7 +146,9 @@ E2E deferred (no browser in this environment) — the payload-replay gate is the
 1. ✅ **Fixed assets** (register, categories, depreciation schedule + posting run) — shipped 2026-10-16
    (migration 0129 + `AssetsModule` + accounting-app screens; disposal deferred as out of roadmap scope).
    Isolated module, posts through `postJournalInTx` only.
-2. **WIP stage for multi-step production** (per D-007 outcome: extend production engines or defer).
+2. ✅ **WIP stage for multi-step production** — shipped 2026-10-16 on the D-007-recommended
+   basis (weighted average, actual consumption): `issue`/`complete` are two steps on the
+   production-orders engine, `wipAccountId` posting key, migration 0130.
 3. **Standard costing / variance** (only if D-007 selects it; engine-level change — highest risk, needs its
    own reversibility + migration specs).
 4. **Budgets & budget-vs-actual** (depends on GL + reporting only).

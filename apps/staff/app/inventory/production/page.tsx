@@ -32,6 +32,9 @@ type ProductionOrder = {
   warehouseId: string;
   orderDate: string;
   status: string;
+  /** 🏭 M6.2 — لحظة صرف المكوّنات إلى الأرضية، وهل مرّ الصرف بحساب تحت التشغيل. */
+  issuedAt?: string | null;
+  wipPosted?: boolean;
   outputItemId: string;
   outputQty: string;
   unitId?: string | null;
@@ -45,7 +48,7 @@ type ProductionOrder = {
 
 type ComponentDraft = { itemId: string; qty: string };
 
-const STATUS_LABELS: Record<string, string> = { draft: 'مسودة', completed: 'منفَّذ', cancelled: 'ملغي' };
+const STATUS_LABELS: Record<string, string> = { draft: 'مسودة', in_progress: 'تحت التشغيل', completed: 'منفَّذ', cancelled: 'ملغي' };
 const emptyComponent = (): ComponentDraft => ({ itemId: '', qty: '' });
 
 /**
@@ -149,16 +152,18 @@ export default function ProductionOrdersPage() {
     }
   }
 
-  async function act(order: ProductionOrder, action: 'complete' | 'cancel') {
+  async function act(order: ProductionOrder, action: 'issue' | 'complete' | 'cancel') {
     setBusy(true);
     setNotice(undefined);
     try {
       const result = await apiPost<ProductionOrder>(`/inventory/production-orders/${order.id}/${action}`, {});
       setNotice({
         kind: 'ok',
-        text: action === 'complete'
-          ? `نُفِّذ الأمر ${order.number}: استُهلكت مكونات بقيمة ${money(result.componentCost)}، ودخل المنتج بتكلفة ${money(result.unitCost)} للوحدة.`
-          : `تم إلغاء الأمر ${order.number}.`,
+        text: action === 'issue'
+          ? `صُرفت مكوّنات الأمر ${order.number} إلى الأرضية بقيمة ${money(result.componentCost)} — استلم الناتج بـ«تنفيذ» حين يجهز.`
+          : action === 'complete'
+            ? `نُفِّذ الأمر ${order.number}: استُهلكت مكونات بقيمة ${money(result.componentCost)}، ودخل المنتج بتكلفة ${money(result.unitCost)} للوحدة.`
+            : `تم إلغاء الأمر ${order.number}.`,
       });
       orders.reload();
     } catch (error) {
@@ -394,6 +399,11 @@ export default function ProductionOrdersPage() {
                   cell: (row) => (
                     <div className="row">
                       {row.status === 'draft' && can('inventory.production.complete') && (
+                        <button className="btn sm" type="button" disabled={busy} onClick={() => act(row, 'issue')}>
+                          صرف
+                        </button>
+                      )}
+                      {(row.status === 'draft' || row.status === 'in_progress') && can('inventory.production.complete') && (
                         <button className="btn sm primary" type="button" disabled={busy} onClick={() => act(row, 'complete')}>
                           تنفيذ
                         </button>
@@ -420,10 +430,15 @@ export default function ProductionOrdersPage() {
           </div>
 
           <StatusTrack
-            steps={['مسودة', 'مُنفَّذ', 'مُلغى']}
-            current={open.status === 'draft' ? 0 : open.status === 'completed' ? 1 : 2}
+            steps={['مسودة', 'تحت التشغيل', 'مُنفَّذ']}
+            current={open.status === 'draft' ? 0 : open.status === 'in_progress' ? 1 : open.status === 'completed' ? 2 : 0}
             cancelled={open.status === 'cancelled'}
           />
+          {open.status === 'in_progress' && (
+            <p className="alert info">
+              المكوّنات صُرفت إلى الأرضية{open.wipPosted ? ' ورُحِّلت عبر حساب تحت التشغيل' : ''} — القيمة معلّقة حتى يُستلم الناتج.
+            </p>
+          )}
 
           <DocHead>
             <DocField label="الرقم">
@@ -435,6 +450,7 @@ export default function ProductionOrdersPage() {
               <span dir="ltr">{quantity(open.outputQty)}</span>
             </DocField>
             <DocField label="المستودع">{warehouseName(open.warehouseId)}</DocField>
+            {open.issuedAt ? <DocField label="تاريخ الصرف">{shortDate(open.issuedAt)}</DocField> : null}
             <DocField label="تكلفة الوحدة">
               <span dir="ltr">{money(open.unitCost)}</span>
             </DocField>

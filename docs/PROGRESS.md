@@ -636,3 +636,80 @@ pinned in the reversibility spec).
 - **Full apps/api suite: 205 files / 1709 tests, exit 0** (was 203/1697; +`fixed-assets`
   8, +`migration-0129-reversibility` 4). Root `pnpm -r run lint` exit 0 and
   `pnpm -r run typecheck` exit 0 — 14 workspaces. accounting-app suite 12/12 ✓.
+
+## 14. M6.2 — WIP stage for multi-step production — implemented 2026-10-16
+
+### 14.1 What shipped
+
+Built on the D-007-recommended basis (perpetual weighted average, output valued at actual
+consumption — the engine's existing invariant, untouched). The gap was temporal, not
+mathematical: until 0130, `complete` consumed the components and received the output in
+one transaction, so there was no moment at which materials had left the shelf without a
+finished item — which is exactly why `wipAccountId` was deliberately absent from the
+posting-profile vocabulary. That moment now exists:
+
+- **Migration `0130_production_wip`** (+ `down/`): two additive columns on
+  `production_orders` — `issued_at` (the moment components went to the floor) and
+  `wip_posted` (did the issue post through the WIP account? decides which pair the
+  completion clears). No new table, no RLS changes; `down` drops the columns and leaves
+  the posted journal entries untouched.
+- **`ProductionOrdersService.issue()`** — `draft → in_progress`: components leave at the
+  moving average (the shared `consumeComponents` helper — same movement, same unique
+  (doc, line) index that guarantees no double consumption between the steps),
+  `componentCost` = what actually left. **`complete()`** now takes both paths: an issued
+  order only receives the output at the accumulated cost; the legacy draft path is
+  byte-for-byte the old behaviour. **`cancel()`** refuses an issued order — its components
+  are on the floor and it must run to completion.
+- **`production-posting.ts` — stage-aware pairs** (`stage: 'issue' | 'complete'`):
+  - issue with `wipAccountId` mapped: «تحت التشغيل ← مواد خام» for what actually left;
+  - issue without it: **neutral** — completion then posts the full «منتج تام ← مواد
+    خام» pair as it always did, so a tenant that mapped the two accounts before WIP
+    existed is not broken by adopting the two-stage flow (a regression my own spec
+    caught before it shipped);
+  - `wipAccountId` mapped but materials missing ⇒ 422 `PRODUCTION_ACCOUNTS_INCOMPLETE`;
+  - completion after a WIP-posted issue: «منتج تام ← تحت التشغيل»; if the account was
+    unmapped between the steps ⇒ 422 `PRODUCTION_WIP_MAPPING_CHANGED` (crediting
+    materials twice is not an outcome the engine will produce). The idempotency-key
+    format is unchanged — the stepKey (`issue`/`complete`) was already the distinguisher.
+- **`wipAccountId` in the posting-profile vocabulary** (contracts + staff settings
+  screen label «إنتاج تحت التشغيل (مواد صُرفت ولم تُنتج)»), and the **staff production
+  screen**: صرف button (draft, behind `inventory.production.complete` — issuing moves
+  stock, it is the financial act, not recipe-writing), تنفيذ for both draft and issued,
+  cancel draft-only, three-step track مسودة ← تحت التشغيل ← منفَّذ, issue date on the
+  card, and an info line for the pending value on the floor.
+- **No new accounting-app screen**: the WIP account is an ordinary ledger account — it is
+  already visible in the chart/trial-balance screens, and its mapping lives in the staff
+  posting-profiles screen where every other production key already does.
+
+### 14.2 Verification
+
+- `apps/api`: `production-wip.spec.ts` 9/9 ✓ (neutral issue + rerun 409; complete at
+  exactly the issued cost with no double consumption; the WIP pass-through clears to
+  zero with two distinct idempotency keys; half-map refusal with stock rolled back;
+  mapping-changed refusal then recovery; legacy draft path byte-identical incl. the
+  pinned key; legacy-mapping two-stage flow; cancel draft-yes/issued-no; viewer 403).
+  `migration-0130-reversibility.spec.ts` 3/3 ✓ (applied + idempotent + defaults; down →
+  `GET /inventory/production-orders` 500 → up → rows preserved with `wip_posted` back to
+  false; 0125–0130 checksums).
+- Regression on the reworked engine: `production-posting-profile` 7/7, `production-and-
+  returns` 3/3, `van-sales-production-policy` 9/9 — the legacy paths are untouched.
+- staff: 87/87 ✓ (83 existing + 4 new source-contract tests for the screen).
+- Full-suite gate recorded in §14.4.
+
+### 14.3 Notes and deferrals
+
+- True multi-stage production (semi-finished → finishing) is composed, not modeled:
+  chained orders — the first order's output is a component of the second — which the
+  engines already support. A first-class stage graph is an engine project of its own and
+  stays out until a pilot needs it.
+- The WMS/BOM engine (`manufacturing_order`, `MF-`) keeps its partial-produce model; a
+  WIP issue stage for it is deferred — its bin-based repeated production has a different
+  shape, and the posting helper is already stage-aware if it ever needs one.
+- Cancelling an issued order is refused rather than reversed: returning lot-tracked
+  components to their original lots is a stock-adjustment decision, not a status flip.
+
+### 14.4 Full-suite gate
+
+- **Full apps/api suite: 207 files / 1721 tests, exit 0** (was 205/1709; +`production-wip`
+  9, +`migration-0130-reversibility` 3). Root `pnpm -r run lint` exit 0 and
+  `pnpm -r run typecheck` exit 0 — 14 workspaces. staff suite 87/87 ✓.

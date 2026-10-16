@@ -1,5 +1,6 @@
 import { isNotNull, isNull } from 'drizzle-orm';
 import {
+  boolean,
   date,
   index,
   integer,
@@ -601,6 +602,18 @@ export const productionOrders = pgTable(
     componentCost: numeric('component_cost', money).notNull().default('0'),
     unitCost: numeric('unit_cost', money).notNull().default('0'),
     notes: text('notes'),
+    /**
+     * 🏭 M6.2 — تحت التشغيل: `issue()` صرف المكوّنات إلى الأرضية (status = `in_progress`)،
+     * و`issuedAt` هو لحظته. بين الصرف والإكمال قيمةُ المكوّنات خارجُ الرفّ ولم تدخل منتجاً
+     * تاماً بعد — تلك هي بالضبط الحالة التي يغطّيها حساب «تحت التشغيل» حين تربطه المنشأة.
+     */
+    issuedAt: timestamp('issued_at', { withTimezone: true }),
+    /**
+     * هل رُحِّل الصرف عبر حساب تحت التشغيل؟ يقرّر الإكمالُ أيّ زوج حسابات يصفّي القيمة:
+     * `wip_posted` ⇒ «منتج تام ← تحت التشغيل»، وإلا فالقاعدة الأصلية «منتج تام ← مواد خام».
+     * تغيير الربط بين الخطوتين مرفوض لا مُدار — لا يُصفّى حسابٌ لم يُفتح.
+     */
+    wipPosted: boolean('wip_posted').notNull().default(false),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     ...baseAuditColumns(),

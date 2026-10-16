@@ -36,6 +36,18 @@ import { PostingProfilesService } from '../organization/posting-profiles/posting
  * No account is ever created here: mapping is the tenant's decision in «الإعدادات ← الربط
  * المحاسبي». And a tenant with no posting profile at all keeps producing — a missing profile means
  * "nothing mapped", not "production is forbidden".
+ *
+ * **M6.2 — مرحلة تحت التشغيل.** `issue()` فصلت الصرف عن الإكمال زمنيًا، فصار للقيمة مكان
+ * تقف فيه بين الخطوتين: حساب `wipAccountId`. القاعدة بامتداد المنطق نفسه:
+ *
+ *   • stage `issue`: الطرفان `wipAccountId` + `rawMaterialsAccountId` معًا ⇒ «تحت التشغيل ←
+ *     مواد خام» بقيمة ما خرج من الرفّ فعلاً؛ وبلا `wipAccountId` ⇒ محايد (الإكمال يرحّل
+ *     الزوج الكامل «منتج تام ← مواد خام» كما في المسار المباشر — لا انكسار لمنشأة ربطت
+ *     الحسابين قبل وجود WIP)؛ و`wipAccountId` بلا مواد خام ⇒ 422 يسمّي الناقص؛
+ *   • stage `complete`: إن كان الصرف قد مرّ تحت التشغيل (`wipPosted`) فالزوج المطلوب
+ *     `finishedGoodsAccountId` + `wipAccountId` — القيمة تُصفّي من الحساب الذي دخلت منه،
+ *     وتغيير الربط بين الخطوتين مرفوض (`PRODUCTION_WIP_MAPPING_CHANGED`) لا مُدار؛ وإلا
+ *     فالزوج الأصلي «منتج تام ← مواد خام» كما كان.
  */
 
 export type ProductionDocType = 'manufacturing_order' | 'production_order';
@@ -87,6 +99,16 @@ export async function postProductionJournalInTx(
     /** قيمة ما استُهلك فعلياً — وهي نفسها قيمة ما دخل منتجاً تاماً. */
     consumedValue: Decimal;
     /**
+     * M6.2 — الخطوة التي يُرحَّل لها: `complete` (الافتراضية — سلوك المحرّكين قبل WIP
+     * كما هو) أو `issue` (الصرف إلى الأرضية، زوج تحت التشغيل/المواد الخام).
+     */
+    stage?: 'issue' | 'complete';
+    /**
+     * هل صُرف هذا الأمر أصلًا عبر قيد تحت التشغيل؟ يحدّد زوج الإكمال (انظر الرأس).
+     * `false` مع `stage: 'complete'` هو مسار الـdraft الموروث — لا سلوك جديد.
+     */
+    wipPosted?: boolean;
+    /**
      * يميّز الخطوة داخل الأمر الواحد: الإنتاج الجزئي المتكرر على الأمر نفسه يُرحَّل أكثر من مرة،
      * و`journal_entries` يحمل فهرساً فريداً على `(tenant_id, idempotency_key)`، فبلا مفتاحٍ distinct
      * تصطدم الخطوة الثانية بالأولى.
@@ -114,10 +136,46 @@ export async function postProductionJournalInTx(
 
   const finishedGoodsAccountId = mapping.finishedGoodsAccountId ?? null;
   const rawMaterialsAccountId = mapping.rawMaterialsAccountId ?? null;
+  const wipAccountId = mapping.wipAccountId ?? null;
 
-  if (!finishedGoodsAccountId && !rawMaterialsAccountId) return NEUTRAL;
-  if (!finishedGoodsAccountId || !rawMaterialsAccountId) {
-    const missing = finishedGoodsAccountId ? 'rawMaterialsAccountId' : 'finishedGoodsAccountId';
+  /**
+   * M6.2 — زوجا الخطوتين. الصرف: (تحت التشغيل، مواد خام). الإكمال: (منتج تام، تحت
+   * التشغيل) إن كان الصرف قد مرّ تحت التشغيل، وإلا (منتج تام، مواد خام) كما كان.
+   */
+  const stage = input.stage ?? 'complete';
+  const debitKey = stage === 'issue' ? 'wipAccountId' : 'finishedGoodsAccountId';
+  const creditKey =
+    stage === 'issue' ? 'rawMaterialsAccountId' : input.wipPosted ? 'wipAccountId' : 'rawMaterialsAccountId';
+  const debitAccountId = stage === 'issue' ? wipAccountId : finishedGoodsAccountId;
+  const creditAccountId =
+    stage === 'issue' ? rawMaterialsAccountId : input.wipPosted ? wipAccountId : rawMaterialsAccountId;
+
+  if (stage === 'issue' && !wipAccountId) {
+    /**
+     * لا حساب تحت تشغيل ⇒ الصرف محايد، والإكمال يرحّل الزوج الكامل «منتج تام ← مواد خام»
+     * كما في المسار المباشر — منشأة ربطت الحسابين قبل وجود WIP لا تنكسر، ومنشأة أرادت
+     * فصل الخطوتين في الدفتر تربط wipAccountId فحسب.
+     */
+    return NEUTRAL;
+  }
+
+  if (stage === 'complete' && input.wipPosted && !wipAccountId) {
+    /**
+     * الصرف رُحِّل عبر تحت التشغيل ثم غيّرت المنشأة الربط قبل الإكمال: القيمة ما تزال
+     * جالسة في حساب تحت التشغيل، والإكمال «منتج تام ← مواد خام» سيخصم المواد مرتين.
+     * الرفض الصريح — تصفية الحساب الذي فُتح قرارُ محاسبي، لا إدارةً صامتة من المحرّك.
+     */
+    throw new DomainError(
+      'PRODUCTION_WIP_MAPPING_CHANGED',
+      `صرفُ هذا الأمر رُحِّل عبر حساب تحت التشغيل، ولا يمكن إكماله بلا ذلك الحساب: أعِد ربط wipAccountId لنوع المستند ${input.docType} من الإعدادات ← الربط المحاسبي حتى تُصفّى القيمة من حيث دخلت`,
+      422,
+      { field: 'wipAccountId', docType: input.docType },
+    );
+  }
+
+  if (!debitAccountId && !creditAccountId) return NEUTRAL;
+  if (!debitAccountId || !creditAccountId) {
+    const missing = debitAccountId ? creditKey : debitKey;
     throw new DomainError(
       'PRODUCTION_ACCOUNTS_INCOMPLETE',
       `ترحيل الإنتاج يحتاج الطرفين معاً: حدّد ${missing} لنوع المستند ${input.docType} من الإعدادات ← الربط المحاسبي، أو أفرغ الطرف المربوط ليبقى الإنتاج محايداً في الدفاتر`,
@@ -133,27 +191,40 @@ export async function postProductionJournalInTx(
   const date = input.date ?? today();
   const value = input.consumedValue.toFixed(4);
   const fiscalPeriodId = await services.accounting.openPeriodForDateInTx(tx, tenantId, date);
+  const lineLabels =
+    stage === 'issue'
+      ? { debit: 'تحت التشغيل — مواد مصروفة', credit: 'مواد خام مستهلَكة' }
+      : input.wipPosted
+        ? { debit: 'منتج تام', credit: 'تحت التشغيل — مُصفّى' }
+        : { debit: 'منتج تام', credit: 'مواد خام مستهلَكة' };
   const entry = await services.accounting.postJournalInTx(tx, tenantId, {
     branchId,
     fiscalPeriodId,
     date,
-    description: `إنتاج ${input.orderNumber} — تحويل مواد خام إلى منتج تام`,
+    description:
+      stage === 'issue'
+        ? `صرف ${input.orderNumber} — تحويل مواد خام إلى تحت التشغيل`
+        : input.wipPosted
+          ? `إنتاج ${input.orderNumber} — تحويل تحت التشغيل إلى منتج تام`
+          : `إنتاج ${input.orderNumber} — تحويل مواد خام إلى منتج تام`,
     lines: [
       {
-        accountId: finishedGoodsAccountId,
+        accountId: debitAccountId,
         debit: value,
         branchId,
-        description: `منتج تام — ${input.orderNumber}`,
+        description: `${lineLabels.debit} — ${input.orderNumber}`,
       },
       {
-        accountId: rawMaterialsAccountId,
+        accountId: creditAccountId,
         credit: value,
         branchId,
-        description: `مواد خام مستهلَكة — ${input.orderNumber}`,
+        description: `${lineLabels.credit} — ${input.orderNumber}`,
       },
     ],
     sourceType: input.docType,
     sourceId: input.orderId,
+    // المفتاح كما كان دائماً — `stepKey` يميّز الخطوات (`issue`/`complete`/أزواج الكميات)،
+    // وإلحاق المرحلة كان سيكسر مطابقة القيود التاريخية بلا حاجة.
     idempotencyKey: `${input.docType}-journal:${input.orderId}:${input.stepKey}`,
   });
 

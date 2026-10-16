@@ -35,9 +35,14 @@ export type PostingProfile = {
   openingBalanceAccountId?: string | null;
   inventoryAdjustmentAccountId?: string | null;
   stockInTransitAccountId?: string | null;
-  /** 🏭 الإنتاج (PHASE_E) — اختياريان: ربطهما معاً يُرحّل قيد «منتج تام ← مواد خام»، وتركهما يبقي الإنتاج محايداً. */
+  /**
+   * 🏭 الإنتاج (PHASE_E) — اختياريان: ربطهما معاً يُرحّل قيد «منتج تام ← مواد خام»، وتركهما يبقي الإنتاج محايداً.
+   * 🏭 M6.2 — و`wipAccountId` (تحت التشغيل) يفصل الصرف عن الإكمال: «تحت التشغيل ← مواد خام» عند
+   * الصرف و«منتج تام ← تحت التشغيل» عند الإكمال؛ بلاه يبقى الصرف محايدًا والقيد كاملًا عند الإكمال.
+   */
   rawMaterialsAccountId?: string | null;
   finishedGoodsAccountId?: string | null;
+  wipAccountId?: string | null;
   cashAccountId?: string | null;
   bankAccountId?: string | null;
   receivableAccountId?: string | null;
@@ -61,6 +66,7 @@ export const POSTING_ACCOUNT_LABELS: Record<string, string> = {
   stockInTransitAccountId: 'بضاعة تحت التحويل',
   rawMaterialsAccountId: 'مواد خام الإنتاج (دقيق/سكر/زيت)',
   finishedGoodsAccountId: 'المنتج التام (خبز/حلويات)',
+  wipAccountId: 'إنتاج تحت التشغيل (مواد صُرفت ولم تُنتج)',
   cashAccountId: 'الصندوق',
   bankAccountId: 'البنك',
   receivableAccountId: 'العملاء (ذمم مدينة)',
