@@ -1084,3 +1084,27 @@ activation).
 
 - The risk register's P3 hygiene items are now all resolved or owned by a milestone
   decision (R-14 awaits D-007, R-16/R-18 are production-time actions).
+
+## 22. Register hygiene — closing rows shipped by M1/M4 — implemented 2026-10-17
+
+The register rows below were *done* by earlier milestones but never closed; each was
+re-verified against the tree this session before closing:
+
+- **R-02 (scope enforcement)** — D-004 enforced on the rep surface (rep guard on every
+  `field-sync` route, ownership re-checked before engine calls, snapshot rep-scoped by
+  construction) with the AUD-03 negative matrix (`field-sync.spec.ts` §5 +
+  `van-sales-permission-scope.spec.ts`).
+- **R-05 (van-sales monolith)** — the 6,479-line class is eight services (custody,
+  documents, load-orders, reporting, pricing, production, shared, legacy shim) behind
+  a 430-line controller.
+- **R-06 (full-snapshot offline sync)** — `field-sync` ships snapshot + honest delta
+  (`since` watermark from the database clock), measured at volume by the M7.3 spec.
+- **R-09 (conflict codes)** — 12 `FIELD_SYNC_*` per-row conflict codes with resolution
+  actions; bad rows never fail the batch; the one crash-window auto-case is detected
+  from state, not assumed.
+
+Open register items after this pass: R-03 (van-sales policy decisions — product
+owner), R-14 (standard costing — gated on D-007), R-16/R-18 (production-time),
+R-07 (compat freeze is a standing review rule), R-17 (audit checklist items already
+covered by the isolation/rbac specs; left open for an explicit audit-plan run).
+Docs-only change; CI carries the gate.
