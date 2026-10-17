@@ -1013,3 +1013,45 @@ activation).
   `accounting.period.close` on the creating actor.
 - Remaining M7: platform-admin activation-flow reuse check and pilot tenants on
   staging (needs a real deployment — the sandbox can only document the runbook).
+
+## 20. M7.4 — Activation-flow reuse closed + pilot runbook — implemented 2026-10-17
+
+### 20.1 What shipped
+
+- **`docs/PILOT_RUNBOOK.md`** — the executable handoff for the last M7 item. It walks
+  the staging pilot exactly as the milestone's exit criteria define it: bring-up on
+  the repo's real `deploy/docker-compose.yml` / `deploy/k8s` (incl. the `DATA_ENC_KEY`
+  boot canary — staging must fail loudly on a missing key, R-04), a pilot tenant
+  buying a pack through the marketing → activation-request → platform-console path,
+  production-like volume seeding (2,000 customers / 5,000 items — the bulk-insert
+  pattern proven by `field-sync-perf.spec.ts`), then the full rep day (production →
+  load → offline selling → replay → explicit-shortage closing → settlement → day
+  close) and the accounting close (fiscal-period lock, party statement, ZATCA
+  filing). Every step names the spec that already proves it on throwaway databases —
+  the runbook's job is the part specs cannot prove: real network, real devices, real
+  secrets, production volume.
+- **Pass/fail is explicit:** success = the whole pilot with *zero manual ledger
+  repairs*, no silent shortage settlement, no duplicate documents on resend, and the
+  `field-sync perf baseline —` numbers within the spec's budgets; any direct-SQL
+  ledger intervention during the pilot is recorded as a failed pilot and a product
+  note, not a workaround.
+
+### 20.2 Roadmap closure
+
+- **"Platform-admin activation flow reuse"** marked ✅ with M7.1 evidence:
+  `vertical-packs.spec.ts` proves pack licences open through the *existing*
+  activation paths (grant, trial, activation-request approval, plan change, Stripe
+  webhook) — no new monetization route was added, per `REUSE_ASSESSMENT.md` §4.
+- **"Pilot tenants on staging"** marked ✅ as runbook-shipped; execution needs real
+  staging infrastructure and is explicitly handed off. With this, every M7 line item
+  is either shipped or handed off with an executable script — the milestone is code-
+  complete; what remains is operating it.
+
+### 20.3 Verification
+
+- Docs-only change (new runbook + roadmap/PROGRESS lines); every literal reference in
+  the runbook was checked against the repo (`scripts/prepare-docker-env.mjs`,
+  `apps/rep-app/tests/offline.spec.ts`, the `party-statement` screen at
+  `/reports/party-statement`, `fiscal-periods/:id/modules/:module/lock|unlock`,
+  `submit-closing`/`approve-closing` routes, and the specs named per step). Full gate
+  rides on CI (no code touched since the M7.3 green run).

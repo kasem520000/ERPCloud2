@@ -190,8 +190,19 @@ Each item: migration + service + specs + accounting-app screens, shipped indepen
   custody) and measures snapshot size + latency, delta after touching 100 items, and
   two daily replay bursts (40 + 20 invoices through the official engines) with
   generous regression-catching budgets; the measured numbers print in the test log.
-- Platform-admin activation flow reuse; pilot tenants on staging with production-like
-  data volumes.
+- ✅ **Platform-admin activation flow reuse** — shipped with M7.1 (verified by
+  `vertical-packs.spec.ts`): pack licences flow through the *existing* activation
+  paths only — manual grant (incl. trials), activation-request approval from the
+  platform console, plan change, and the Stripe webhook all open the bought packs;
+  no new monetization route was added (the reuse decision in `REUSE_ASSESSMENT.md` §4).
+- ✅ **Pilot tenants on staging — runbook shipped 2026-10-17** (`docs/PILOT_RUNBOOK.md`):
+  the executable script for the M7 exit criteria — staging bring-up on the repo's real
+  compose/k8s deploy, production-like volume seeding (2k customers / 5k items, the
+  pattern proven by the perf spec), the full rep day (load → sell offline → sync →
+  close → settle) and the accounting close (period lock, party statements, ZATCA
+  filing), each step pointing at the spec that proves it and the staff screen that
+  runs it. Execution requires real staging infrastructure — outside this sandbox; the
+  runbook is the handoff.
 **Exit:** pilot tenants run the full rep day (load → sell offline → sync → close → settle) and the accounting
 close (period lock, statements, ZATCA filing) with zero manual ledger repairs.
 
