@@ -154,7 +154,12 @@ E2E deferred (no browser in this environment) — the payload-replay gate is the
 4. ✅ **Budgets & budget-vs-actual** — shipped 2026-10-16: migration 0131 + `BudgetsModule`
    (draft/approved lifecycle, monthly distribution, computed variance report) +
    accounting-app screens. No stored second balance; approval freezes.
-5. **Bank reconciliation desk** (extend import+match+report toward reviewable match → post flow).
+5. ✅ **Bank reconciliation desk** — shipped 2026-10-17: migration 0132 + reviewable
+   match → post flow (`POST /treasury/bank-statements/:id/lines/:lineId/post` posts a
+   pending line — bank charges, interest — as a balanced entry through `postJournalInTx`
+   with a reviewer-confirmed counter account; posted lines carry their JE, refuse unmatch
+   until the entry is reversed, and count into the reconciliation report; staff desk screen
+   with the review card). Suggestions still only pre-fill the form — never posted silently.
 Each item: migration + service + specs + accounting-app screens, shipped independently.
 **Exit:** per-feature acceptance specs; GL integrity suite (trial balance, reversal consistency) stays green.
 

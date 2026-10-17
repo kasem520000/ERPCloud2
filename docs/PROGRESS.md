@@ -781,3 +781,75 @@ reporting only and shipped next per the roadmap's dependency order.
 - **Full apps/api suite: 209 files / 1731 tests, exit 0** (was 207/1721; +`budgets` 6,
   +`migration-0131-reversibility` 4). Root `pnpm -r run lint` exit 0 and
   `pnpm -r run typecheck` exit 0 — 14 workspaces. accounting-app suite 17/17 ✓.
+
+## 16. M6.5 — Bank reconciliation desk: reviewable match → post — implemented 2026-10-17
+
+### 16.1 What shipped
+
+The bank-feed plane (§0096, future enhancement 01) could import a statement, match its
+lines to posted invoices/vouchers and report the bank-versus-ledger difference — but a
+line the books never knew (bank charges, interest, wire fees) could only be matched,
+ignored or left pending forever. M6.5 closes that loop without breaking the slice's
+invariant: **suggestions are never silently posted.**
+
+- **Migration `0132_bank_line_posting`** (+ `down/`): `bank_statement_lines` gains
+  `posted_journal_entry_id` (FK → `journal_entries`, `ON DELETE SET NULL`) + tenant
+  index, and the 0096 status CHECK is widened (drop + re-add, house pattern from
+  0029/0036) to admit `'posted'` beside pending/matched/ignored. Down drops the column
+  and index; the ledger is untouched.
+- **`BankFeedsModule` now imports `AccountingModule`** — posting goes through the same
+  `AccountingService.postJournalInTx` every other posting module uses (open period,
+  module lock, JE- sequence, balanced-entry checks, line auto-naming all inherited).
+- **`POST /treasury/bank-statements/:id/lines/:lineId/post`**
+  (`treasury.bank.manage`): only a `pending` line; the counter **account is required**
+  (`BANK_POST_ACCOUNT_REQUIRED`), the bank account must be linked to a ledger account
+  (`BANK_ACCOUNT_UNLINKED`), and the counter cannot be the bank's own account
+  (`BANK_POST_ACCOUNT_SAME`). A positive amount (deposit) debits the bank ledger
+  account and credits the counter; a negative one (withdrawal — charges) debits the
+  counter. Cost center: explicit input, else the line's suggestion. The entry carries
+  `source_type = 'bank_statement_line'`, `source_id = <line id>`, idempotency key
+  `bank_statement_line:<lineId>` (re-posts after a reversal get an ordinal suffix so
+  the unique key never collides). Date = the bank's own transaction date via
+  `resolvePostingContext` — a closed/missing period stops the posting exactly as it
+  stops a manual entry.
+- **Lifecycle**: the line becomes `status = 'posted'` with its entry id
+  (`postedJournalNumber` joins into the lines payload); `unmatch` on a posted line is
+  refused (`BANK_LINE_POSTED`) while the entry stands, and succeeds once a reversal
+  exists (0125) — returning the line to `pending` for re-post or re-match. Failed
+  posts roll back completely (line stays pending, no entry).
+- **Reconciliation report**: `postedLines` + `postedMovement` added; the books-only
+  fallback (`ledgerSource = 'settled bank lines'`) counts posted lines as settled.
+  `listLines` accepts `status=posted`.
+- **Staff desk** (`app/treasury/bank-reconciliation/page.tsx`): a review card
+  (الحساب المقابل · مركز التكلفة · بيان القيد) pre-filled from the rule suggestion
+  with the explicit «تأكيد وترحيل القيد»; posted lines move to the settled side and
+  link straight to their journal entry screen.
+
+### 16.2 Verification
+
+- `apps/api`: `treasury-bank-posting.spec.ts` 6/6 ✓ (positive posting with entry line
+  assertions incl. `sourceType`/`sourceId`; negative posting with cost center +
+  `postedJournalNumber` in the lines payload; re-post/ignored guards 409 +
+  same-account/unknown-account 422 with the line still pending after rollback;
+  unlinked-account 422 + viewer 403/view 200; posted-unmatch refused → reversal →
+  unmatch → re-post under a fresh key; report counts `postedLines`/`postedMovement` +
+  statement `reconciled`). Staff screen contract
+  `bank-reconciliation-posting.spec.ts` 4/4 ✓ (posted label + settled-side filter;
+  pending-only post button behind manage + required explicit account + no-silent-
+  suggestion guard; endpoint + payload wiring; journal-entry link).
+
+### 16.3 Notes and deferrals
+
+- Automatic posting remains explicitly out of scope (master plan); the desk flow is
+  reviewable by construction — the account always comes from the reviewer.
+- Bank-charge lines post against the bank's linked ledger account; accounts with no
+  link are refused rather than guessing a contra account.
+- MT940/CAMT and Saudi Open Banking ingestion remain future work (0096 scope note).
+
+### 16.4 Full-suite gate
+
+- **Full apps/api suite: 210 files / 1737 tests, exit 0** (was 209/1731;
+  +`treasury-bank-posting` 6). Root `-r run lint` exit 0 and `-r run typecheck`
+  exit 0. Smoke check (AppModule boot from dist) passed. accounting-app 17/17 ✓,
+  staff 16 files / 91 tests ✓ (+4), `openapi.json` regenerated (+31 lines, new
+  route `/treasury/bank-statements/{id}/lines/{lineId}/post`).

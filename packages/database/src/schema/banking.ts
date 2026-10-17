@@ -14,7 +14,7 @@ import {
 
 import { baseAuditColumns } from '../columns.js';
 
-import { accounts, costCenters } from './accounting.js';
+import { accounts, costCenters, journalEntries } from './accounting.js';
 import { vouchers } from './treasury.js';
 import { files } from './platform-services.js';
 import { tenants } from './platform.js';
@@ -113,6 +113,13 @@ export const bankStatementLines = pgTable(
     matchReason: text('match_reason'),
     suggestedAccountId: uuid('suggested_account_id').references(() => accounts.id, { onDelete: 'set null' }),
     suggestedCostCenterId: uuid('suggested_cost_center_id').references(() => costCenters.id, { onDelete: 'set null' }),
+    /**
+     * M6.5 — the entry that carried this line once the reviewer posted it (bank
+     * charges, interest, wires the books never knew). Null while the line is only
+     * matched or pending. `status = 'posted'` goes with it; the suggestion columns
+     * only pre-fill the review form and never post by themselves.
+     */
+    postedJournalEntryId: uuid('posted_journal_entry_id').references(() => journalEntries.id, { onDelete: 'set null' }),
     status: text('status').notNull().default('pending'),
     matchedAt: timestamp('matched_at', { withTimezone: true }),
     matchedBy: uuid('matched_by'),
@@ -125,6 +132,7 @@ export const bankStatementLines = pgTable(
     date: index('bank_statement_lines_statement_date_idx').on(table.statementId, table.txnDate),
     voucher: index('bank_statement_lines_matched_voucher_idx').on(table.tenantId, table.matchedVoucherId),
     invoice: index('bank_statement_lines_matched_invoice_idx').on(table.tenantId, table.matchedInvoiceId),
+    postedEntry: index('bank_statement_lines_posted_entry_idx').on(table.tenantId, table.postedJournalEntryId),
   }),
 );
 

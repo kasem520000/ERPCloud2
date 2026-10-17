@@ -8,6 +8,7 @@ import {
   type BankAccountInput,
   type BankAccountUpdate,
   type BankLineMatchInput,
+  type BankLinePostInput,
   type BankRuleInput,
   type BankStatementImportInput,
 } from './bank-feeds.service.js';
@@ -98,6 +99,17 @@ export class BankFeedsController {
   @RequiresPermission('treasury.bank.manage')
   async ignore(@Param('id') id: string, @Param('lineId') lineId: string) {
     return { data: await this.bankFeeds.ignoreLine(getTenantContext().tenantId, id, lineId) };
+  }
+
+  /**
+   * M6.5 — الترحيل القابل للمراجعة: post one reviewed line as a journal entry. The
+   * counter account comes from the reviewer (the rule suggestion only pre-fills the
+   * desk form), so nothing is ever posted silently.
+   */
+  @Post('bank-statements/:id/lines/:lineId/post')
+  @RequiresPermission('treasury.bank.manage')
+  async postLine(@Param('id') id: string, @Param('lineId') lineId: string, @Body() body: BankLinePostInput) {
+    return { data: await this.bankFeeds.postLine(getTenantContext().tenantId, id, lineId, body) };
   }
 
   @Delete('bank-statements/:id/lines/:lineId/match')

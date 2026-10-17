@@ -19,12 +19,21 @@ Cash-location balances are updated in the same transaction as voucher posting, v
 The bank-feed surface is implemented in `bank-feeds.controller.ts` / `bank-feeds.service.ts`:
 
 - `POST /treasury/bank-statements/import` accepts RFC-4180 CSV text (comma, semicolon or tab), including Arabic headers and debit/credit columns.
-- `GET /treasury/bank-statements/:id/lines` exposes pending, matched and ignored lines without creating accounting entries.
+- `GET /treasury/bank-statements/:id/lines` exposes pending, matched, ignored and posted lines; posting never happens as a side effect of listing or matching.
 - `POST /treasury/bank-statements/:id/auto-match` scores posted sales/purchase invoices and vouchers by amount, date, reference and party name.
-- `GET /treasury/bank-reconciliation` compares the imported bank balance with the linked journal account; when no ledger account is linked it reports the matched-lines fallback explicitly.
+- `GET /treasury/bank-reconciliation` compares the imported bank balance with the linked journal account; when no ledger account is linked it reports the settled-lines fallback explicitly (`postedLines`/`postedMovement` count the lines posted through the flow below).
 - `bank_reconciliation_rules` stores deterministic keyword suggestions. Suggestions are never silently posted.
 
-The database objects live in migration `0096_bank_feeds.sql` and `packages/database/src/schema/banking.ts`. The two permissions are `treasury.bank.view` and `treasury.bank.manage`. Direct Saudi Open Banking, MT940/CAMT and automatic posting remain out of scope for this first slice.
+### M6.5 — reviewable match → post (`0132_bank_line_posting.sql`)
+
+A line the books never knew — bank charges, interest, wire fees — used to be matchable, ignorable or forever pending. It can now be **posted** (`POST /treasury/bank-statements/:id/lines/:lineId/post`):
+
+- Only a `pending` line can be posted, and the counter **account is required** in the request: the rule suggestion (`suggested_account_id` / `suggested_cost_center_id`) only pre-fills the desk form at `apps/staff/app/treasury/bank-reconciliation/page.tsx` — nothing is ever posted from a suggestion alone.
+- The entry goes through `AccountingService.postJournalInTx` like every other posting: a balanced two-line entry at the bank's own transaction date (positive deposit → Dr bank / Cr counter, negative withdrawal → Dr counter / Cr bank), open period and module-lock checks included, `source_type = 'bank_statement_line'`, `source_id = <line id>`, idempotency key `bank_statement_line:<lineId>` (a re-post after a reversal gets an ordinal suffix).
+- The line becomes `status = 'posted'` with `posted_journal_entry_id` (and `postedJournalNumber` in the lines payload), and the statement reaches `reconciled` only when nothing is pending.
+- Lifecycle: `unmatch` on a posted line is refused with `BANK_LINE_POSTED` while its entry stands; after the entry is reversed from the journal (0125), unmatch returns the line to `pending` and it can be re-posted or re-matched.
+
+The database objects live in migrations `0096_bank_feeds.sql` + `0132_bank_line_posting.sql` and `packages/database/src/schema/banking.ts`. The two permissions are `treasury.bank.view` and `treasury.bank.manage`. Direct Saudi Open Banking, MT940/CAMT and automatic posting remain out of scope.
 
 Shift close stores counted denomination lines, expected cash from posted cash vouchers inside the shift window, and `diff = counted - expected`. Reports remain structured JSON until Phase 14 rendering.
 

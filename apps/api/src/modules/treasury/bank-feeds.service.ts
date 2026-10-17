@@ -20,6 +20,7 @@ import {
   type DrizzleTx,
 } from '@erp/database';
 
+import { AccountingService, type JournalLineInput } from '../accounting/accounting.service.js';
 import { DATABASE_HANDLE } from '../../database/database.module.js';
 import { tryGetAuthContext } from '../../request-context/request-context.js';
 
@@ -59,6 +60,21 @@ export type BankLineMatchInput = {
   voucherId?: string;
   invoiceId?: string;
   invoiceType?: 'sale' | 'purchase';
+};
+
+/**
+ * M6.5 — the reviewable match→post card. Only pending lines can be posted, and the
+ * counter account is REQUIRED on purpose: the suggestion columns pre-fill the desk
+ * form, but nothing is ever posted from a suggestion alone ("suggestions are never
+ * silently posted"). A positive bank amount (money in) debits the bank ledger
+ * account and credits the counter account — interest income, for example; a
+ * negative amount (money out) debits the counter account — bank charges, for
+ * example — and credits the bank.
+ */
+export type BankLinePostInput = {
+  accountId: string;
+  costCenterId?: string;
+  description?: string;
 };
 
 export type BankRuleInput = {
@@ -134,7 +150,10 @@ function extractCsv(input: BankStatementImportInput): string {
 
 @Injectable()
 export class BankFeedsService {
-  constructor(@Inject(DATABASE_HANDLE) private readonly database: DatabaseHandle) {}
+  constructor(
+    @Inject(DATABASE_HANDLE) private readonly database: DatabaseHandle,
+    private readonly accounting: AccountingService,
+  ) {}
 
   async listBankAccounts(tenantId: string) {
     return withTenantTx(this.database.db, tenantId, async (tx) => {
@@ -332,17 +351,19 @@ export class BankFeedsService {
   async listLines(tenantId: string, statementId: string, status?: string) {
     return withTenantTx(this.database.db, tenantId, async (tx) => {
       await this.mustStatement(tx, tenantId, statementId);
-      return tx
-        .select()
+      const rows = await tx
+        .select({ line: bankStatementLines, postedJournalNumber: journalEntries.number })
         .from(bankStatementLines)
+        .leftJoin(journalEntries, eq(journalEntries.id, bankStatementLines.postedJournalEntryId))
         .where(
           and(
             eq(bankStatementLines.tenantId, tenantId),
             eq(bankStatementLines.statementId, statementId),
-            status && ['pending', 'matched', 'ignored'].includes(status) ? eq(bankStatementLines.status, status) : undefined,
+            status && ['pending', 'matched', 'ignored', 'posted'].includes(status) ? eq(bankStatementLines.status, status) : undefined,
           ),
         )
         .orderBy(asc(bankStatementLines.lineNo));
+      return rows.map((row) => ({ ...row.line, postedJournalNumber: row.postedJournalNumber ?? null }));
     });
   }
 
@@ -420,6 +441,30 @@ export class BankFeedsService {
   async unmatchLine(tenantId: string, statementId: string, lineId: string) {
     return withTenantTx(this.database.db, tenantId, async (tx) => {
       const line = await this.mustLine(tx, tenantId, statementId, lineId);
+      // M6.5 — a posted line is wired into the ledger: unmatching it while its entry
+      // stands would leave a live entry the desk no longer points at. Reverse the
+      // entry from دفتر اليومية first; once a reversal exists the line can go back
+      // to pending and be re-posted (or matched) under a fresh idempotency key.
+      if (line.status === 'posted' && line.postedJournalEntryId) {
+        const [reversal] = await tx
+          .select({ id: journalEntries.id })
+          .from(journalEntries)
+          .where(
+            and(
+              eq(journalEntries.tenantId, tenantId),
+              eq(journalEntries.reversalOf, line.postedJournalEntryId),
+              eq(journalEntries.status, 'posted'),
+            ),
+          )
+          .limit(1);
+        if (!reversal) {
+          throw new DomainError(
+            'BANK_LINE_POSTED',
+            'الحركة مرتبطة بقيد مرحَّل — اعكس القيد من دفتر اليومية أولاً ثم أعد إلغاء الترحيل',
+            409,
+          );
+        }
+      }
       const [updated] = await tx
         .update(bankStatementLines)
         .set({
@@ -428,6 +473,7 @@ export class BankFeedsService {
           matchedInvoiceType: null,
           matchConfidence: null,
           matchReason: null,
+          postedJournalEntryId: null,
           status: 'pending',
           matchedAt: null,
           matchedBy: null,
@@ -439,6 +485,87 @@ export class BankFeedsService {
         .returning();
       await this.refreshStatementStatus(tx, tenantId, statementId);
       return updated;
+    });
+  }
+
+  /**
+   * M6.5 — الترحيل القابل للمراجعة: put a line the books never knew (bank charges,
+   * interest, wire fees) into the ledger as a balanced two-line entry. The reviewer
+   * explicitly names the counter account — the rule suggestion only pre-fills the
+   * form — and the entry goes through the same `postJournalInTx` every other module
+   * uses, so open periods, module locks and the JE sequence all apply unchanged.
+   */
+  async postLine(tenantId: string, statementId: string, lineId: string, input: BankLinePostInput) {
+    if (!input.accountId) throw new DomainError('BANK_POST_ACCOUNT_REQUIRED', 'اختر الحساب المقابل قبل ترحيل الحركة', 422, { field: 'accountId' });
+    return withTenantTx(this.database.db, tenantId, async (tx) => {
+      const statement = await this.mustStatement(tx, tenantId, statementId);
+      const line = await this.mustLine(tx, tenantId, statementId, lineId);
+      if (line.status !== 'pending') {
+        throw new DomainError('BANK_LINE_NOT_PENDING', 'لا تُرحَّل إلا الحركات المعلّقة — طابق الحركة أو أعدها إلى المعلّق أولاً', 409);
+      }
+      const signed = money(line.amount);
+      if (signed.isZero()) throw new DomainError('BANK_LINE_AMOUNT_INVALID', 'لا يمكن ترحيل حركة بصفر', 422);
+
+      const account = await this.mustBankAccount(tx, tenantId, statement.bankAccountId);
+      if (!account.accountId) {
+        throw new DomainError('BANK_ACCOUNT_UNLINKED', 'اربط الحساب البنكي بحساب دفتري من شاشة الحسابات البنكية قبل الترحيل', 422, { field: 'accountId' });
+      }
+      await this.assertAccount(tx, tenantId, input.accountId);
+      if (input.accountId === account.accountId) {
+        throw new DomainError('BANK_POST_ACCOUNT_SAME', 'الحساب المقابل لا يمكن أن يكون حساب البنك نفسه', 422, { field: 'accountId' });
+      }
+      const costCenterId = input.costCenterId ?? line.suggestedCostCenterId ?? null;
+      await this.assertCostCenter(tx, tenantId, costCenterId);
+
+      const narrative = line.description?.trim() || line.reference?.trim() || `حركة بنكية رقم ${line.lineNo}`;
+      const absolute = signed.abs().toFixed(4);
+      // A deposit (positive) debits the bank; a withdrawal (negative) credits it.
+      const bankLeg: JournalLineInput = signed.gt(0) ? { accountId: account.accountId, debit: absolute } : { accountId: account.accountId, credit: absolute };
+      const counterLeg: JournalLineInput = signed.gt(0)
+        ? { accountId: input.accountId, credit: absolute, costCenterId: costCenterId ?? undefined }
+        : { accountId: input.accountId, debit: absolute, costCenterId: costCenterId ?? undefined };
+
+      // The date is the bank's own transaction date — the entry lands in the period
+      // that really contains it; a closed or missing period stops the posting the
+      // same way it stops a manual entry.
+      const { branchId, fiscalPeriodId } = await this.accounting.resolvePostingContext(tx, tenantId, dateOnly(line.txnDate));
+      // Re-posting after a reversal must not collide with the first entry's
+      // idempotency key, so the key carries the ordinal of this line's entries.
+      const prior = await tx
+        .select({ id: journalEntries.id })
+        .from(journalEntries)
+        .where(and(eq(journalEntries.tenantId, tenantId), eq(journalEntries.sourceType, 'bank_statement_line'), eq(journalEntries.sourceId, line.id)));
+      const idempotencyKey = prior.length === 0 ? `bank_statement_line:${line.id}` : `bank_statement_line:${line.id}:${prior.length + 1}`;
+      const entry = await this.accounting.postJournalInTx(tx, tenantId, {
+        branchId,
+        fiscalPeriodId,
+        date: dateOnly(line.txnDate),
+        description: input.description?.trim() || `تسوية بنكية: ${narrative}`,
+        lines: [bankLeg, counterLeg],
+        sourceType: 'bank_statement_line',
+        sourceId: line.id,
+        idempotencyKey,
+      });
+      if (!entry) throw new DomainError('BANK_LINE_POST_FAILED', 'تعذر إنشاء قيد التسوية', 500);
+
+      const [updated] = await tx
+        .update(bankStatementLines)
+        .set({
+          postedJournalEntryId: entry.id,
+          status: 'posted',
+          matchConfidence: '1.0000',
+          matchReason: 'ترحيل يدوي',
+          matchedAt: new Date(),
+          matchedBy: actorId(),
+          updatedAt: new Date(),
+          updatedBy: actorId(),
+          version: line.version + 1,
+        })
+        .where(and(eq(bankStatementLines.tenantId, tenantId), eq(bankStatementLines.id, line.id), eq(bankStatementLines.version, line.version)))
+        .returning();
+      if (!updated) throw new DomainError('VERSION_CONFLICT', 'Bank statement line was changed by another user', 409);
+      await this.refreshStatementStatus(tx, tenantId, statementId);
+      return { line: updated, journalEntry: { id: entry.id, number: entry.number, date: entry.date, description: entry.description } };
     });
   }
 
@@ -574,12 +701,15 @@ export class BankFeedsService {
       const opening = money(firstStatement?.openingBalance ?? account.openingBalance);
       const bankMovement = lines.reduce((sum, row) => sum.plus(money(row.line.amount)), new Decimal(0));
       const matchedMovement = lines.filter((row) => row.line.status === 'matched').reduce((sum, row) => sum.plus(money(row.line.amount)), new Decimal(0));
+      const postedMovement = lines.filter((row) => row.line.status === 'posted').reduce((sum, row) => sum.plus(money(row.line.amount)), new Decimal(0));
       const unmatchedMovement = lines.filter((row) => row.line.status === 'pending').reduce((sum, row) => sum.plus(money(row.line.amount)), new Decimal(0));
       const lastWithBalance = [...lines].reverse().find((row) => row.line.balance !== null)?.line.balance;
       const bankBalance = lastWithBalance === undefined || lastWithBalance === null ? opening.plus(bankMovement) : money(lastWithBalance);
 
-      let ledgerBalance = opening.plus(matchedMovement);
-      let ledgerSource = 'matched bank lines';
+      // A posted line (bank charge, interest) carries a real journal entry, so the
+      // books-only fallback counts it as settled — exactly like a matched line.
+      let ledgerBalance = opening.plus(matchedMovement).plus(postedMovement);
+      let ledgerSource = 'settled bank lines';
       if (account.accountId) {
         const ledgerConditions = [
           eq(journalEntryLines.tenantId, tenantId),
@@ -612,8 +742,10 @@ export class BankFeedsService {
         ledgerSource,
         difference: bankBalance.minus(ledgerBalance).toFixed(4),
         matchedMovement: matchedMovement.toFixed(4),
+        postedMovement: postedMovement.toFixed(4),
         unmatchedMovement: unmatchedMovement.toFixed(4),
         matchedLines: lines.filter((row) => row.line.status === 'matched').length,
+        postedLines: lines.filter((row) => row.line.status === 'posted').length,
         pendingLines: lines.filter((row) => row.line.status === 'pending').length,
         ignoredLines: lines.filter((row) => row.line.status === 'ignored').length,
         statementCount: new Set(lines.map((row) => row.statement.id)).size,
