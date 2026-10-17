@@ -256,7 +256,7 @@ Implements rep custody end-to-end against the official ledgers:
 
 ## 6. Legacy context (why this exists)
 
-- `sql.txt` (repo root): a SQL Server DDL dump of the legacy desktop ERP (`Data16`, 185 `CREATE TABLE`
+- `docs/legacy/sql.txt`: a SQL Server DDL dump of the legacy desktop ERP (`Data16`, 185 `CREATE TABLE`
   statements, Arabic column semantics) — the desktop system the cloud platform replaces. **[V]**
 - `apps/migrator` — wave-based migration engine with per-entity registry
   (`apps/migrator/src/registry/maps.ts`, generated `docs/registry-index.md`): foundation → branches →

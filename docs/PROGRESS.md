@@ -15,7 +15,7 @@
   modules; `packages/database` schema (41 files) + migration ledger mechanics + RLS helpers;
   `packages/contracts`, `packages/config`, `packages/testing`; `apps/staff` navigation + offline POS layer +
   van-sales screens; `apps/platform-admin` surface; existing `docs/` (master plan, audits, van-sales
-  engineering reports, phase docs); `sql.txt` legacy dump.
+  engineering reports, phase docs); `docs/legacy/sql.txt` legacy dump.
 - No source file was modified. No migration was applied to any persistent database (all test runs used
   throwaway embedded PostgreSQL 16 clusters created and destroyed by the test harness). Nothing was
   committed, pushed, or deployed. **[V]**
@@ -1055,3 +1055,32 @@ activation).
   `/reports/party-statement`, `fiscal-periods/:id/modules/:module/lock|unlock`,
   `submit-closing`/`approve-closing` routes, and the specs named per step). Full gate
   rides on CI (no code touched since the M7.3 green run).
+
+## 21. M7.5 — Register housekeeping: openapi drift guard + legacy DDL move — implemented 2026-10-17
+
+### 21.1 What shipped
+
+- **`pnpm openapi:check` (R-21)** — `scripts/check-openapi-drift.mjs`: exports the
+  OpenAPI document to a temp file through the same compiled CLI and byte-compares it
+  with the committed `packages/contracts/openapi.json`, failing with the first
+  differing line (and line counts) plus the exact fix command. Wired into
+  `pnpm verify` **before** `openapi:export` — the check guards the *committed*
+  artifact, the export then refreshes the working tree so a local `verify` run ends
+  with the correct file in place. Verified both directions: green on the current
+  artifact; exits 1 on an injected one-byte drift (then restored).
+- **`sql.txt` → `docs/legacy/sql.txt` (R-12)** — `git mv` (history preserved), no
+  behavior change; nothing in code referenced the root path (grep), and the four doc
+  references (`CURRENT_ARCHITECTURE`, `REUSE_ASSESSMENT` ×2, `PROGRESS`) now point at
+  the new location.
+
+### 21.2 Verification
+
+- `pnpm openapi:check` standalone: pass (fresh artifact) and fail (injected drift)
+  both confirmed. `verify` chain now: typegen → typecheck → lint → build → smoke →
+  test → **openapi:check** → openapi:export; the full chain is what CI runs on this
+  commit.
+
+### 21.3 Notes
+
+- The risk register's P3 hygiene items are now all resolved or owned by a milestone
+  decision (R-14 awaits D-007, R-16/R-18 are production-time actions).

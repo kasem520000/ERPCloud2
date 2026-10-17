@@ -32,7 +32,7 @@
 | 18 | `packages/contracts`, `packages/config`, `packages/ui`, `packages/testing` | **REUSE** | High **[V]** |
 | 19 | Migration tooling (`apps/migrator` wave engine + registry) | **REUSE + EXTEND** (for onboarding manufacturers from legacy systems) | High **[V]** |
 | 20 | Compat gateway (`modules/compat`) for the legacy desktop client | **REFERENCE only** for the new product (do not extend it into the new apps) | High **[V]** |
-| 21 | Legacy desktop schema (`sql.txt`) | **REFERENCE only** | High **[V]** |
+| 21 | Legacy desktop schema (now `docs/legacy/sql.txt`) | **REFERENCE only** | High **[V]** |
 | 22 | Dedicated offline-first field-rep application | **MISSING** (new frontend app + sync service) | — |
 | 23 | New specialized accounting application (UI) | **MISSING** (new frontend app; backend largely exists) | — |
 | 24 | Fixed assets, budgets, standard costing, WIP accounts | **MISSING** (verified absent) | High **[V]** |
@@ -124,7 +124,7 @@ apps' screens with the same `visibleModules` appGate mechanism. **[V]**
 (device keys, master pulls, document pushes). The new product must not route through it; it exists so
 existing desktop users can transition. Keep it isolated; it is not part of the new architecture. **[V]**
 
-**Legacy desktop schema** (`sql.txt`) and the migrator registry maps: the source of truth for onboarding
+**Legacy desktop schema** (now `docs/legacy/sql.txt`) and the migrator registry maps: the source of truth for onboarding
 manufacturers running the legacy system — use as reference for field mappings, not as a design template. **[V]**
 
 **Vertical packs** (marina, optics, tailoring): useful as the reference implementation of "sector pack as
