@@ -972,3 +972,44 @@ activation).
 - Gate footguns re-confirmed: `pnpm typecheck -r` passes a stray `-r` to tsc (run
   `pnpm typecheck`); root scripts shelling out to bare `pnpm` need `corepack enable`
   first.
+
+## 19. M7.3 — Field-sync performance baseline (R-13) — implemented 2026-10-17
+
+### 19.1 What shipped
+
+- **`apps/api/test/field-sync-perf.spec.ts`** — the load test the risk register asked
+  for. It seeds the register's exact scenario in one tenant — **2,000 customers and
+  5,000 items** (bulk `generate_series` inserts through the owner pool), a rep with a
+  salesman card and van warehouse, and custody loaded through the **official engines**
+  (production batch → load order → confirmed receipt) — then measures:
+  1. **Snapshot** at production volume: row counts (2001 customers / 5000 items in the
+     payload), JSON byte size, and wall-clock latency;
+  2. **Delta** after touching 100 items: all 100 arrive in `changed.items`, latency
+     measured (the `full` re-reads of item units/barcodes/stock are part of the cost);
+  3. **Daily replay bursts**: 40 invoices then 20 more (one per customer, monotonic
+     sequences on one device), every row through the van-sales saga — the spec asserts
+     `synced === 40/20` and `conflicts === 0`, so a slow-but-failing burst can't pass.
+- **Budgets are generous ceilings, not SLAs** (snapshot < 25 MB / 15 s, delta < 15 s,
+  bursts < 90 s / 60 s): they catch order-of-magnitude regressions (N+1 query,
+  payload bloat) without making CI flaky on runner variance. The measured numbers
+  `console.log` on every run with a `field-sync perf baseline —` prefix, so the
+  baseline travels with the suite instead of living in a document.
+- **Local baseline (this sandbox, embedded postgres):** snapshot 2.18 MB / 111–123 ms;
+  delta 100 items / 48–72 ms; burst1 40 ops / 2.36 s (59 ms/op); burst2 20 ops /
+  1.04 s (52 ms/op).
+
+### 19.2 Verification
+
+- `field-sync-perf.spec.ts` 3/3 ✓ standalone. Full gate re-run: typecheck, lint,
+  build, smoke, `pnpm -r run test` — apps/api now **213 files / 1750 tests** exit 0;
+  `openapi.json` no diff (no route changes).
+
+### 19.3 Notes and deferrals
+
+- The spec is a measurement, not a functional contract — scope/ownership/idempotency
+  stay proven by `field-sync.spec.ts`; here only volume and time are asserted.
+- Seeding footguns recorded: `items`/`parties` have **no `id` default** (bulk inserts
+  must pass `gen_random_uuid()`), and the fiscal-year route needs
+  `accounting.period.close` on the creating actor.
+- Remaining M7: platform-admin activation-flow reuse check and pilot tenants on
+  staging (needs a real deployment — the sandbox can only document the runbook).

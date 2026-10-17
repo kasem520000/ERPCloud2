@@ -185,8 +185,13 @@ Each item: migration + service + specs + accounting-app screens, shipped indepen
   testimonials, and `verify.spec.ts` proves each line against the named source file.
   Sitemap, `/industries` index and the `[slug]` route pick the new pages up from
   `industrySlugs` with zero further edits.
+- ✅ **Performance baseline for snapshot/replay (R-13)** — shipped 2026-10-17:
+  `field-sync-perf.spec.ts` seeds the register's scenario (2k customers / 5k items /
+  custody) and measures snapshot size + latency, delta after touching 100 items, and
+  two daily replay bursts (40 + 20 invoices through the official engines) with
+  generous regression-catching budgets; the measured numbers print in the test log.
 - Platform-admin activation flow reuse; pilot tenants on staging with production-like
-  data volumes; performance baseline for snapshot/replay (R-13).
+  data volumes.
 **Exit:** pilot tenants run the full rep day (load → sell offline → sync → close → settle) and the accounting
 close (period lock, statements, ZATCA filing) with zero manual ledger repairs.
 
