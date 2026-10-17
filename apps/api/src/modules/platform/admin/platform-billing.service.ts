@@ -66,6 +66,8 @@ import { buildQrPayload } from '../../einvoicing/zatca/qr.js';
 import { WebhookPublisher } from '../../developer/webhook-publisher.service.js';
 import { AuditService } from '../../platform-services/audit/audit.service.js';
 
+import { applyPlanFeaturePacks } from './pack-entitlements.js';
+
 /**
  * P-C4 — «الباقات والتراخيص والفوترة»: ما تبيعه المنصة، وبكم، وعلى أي ورقة.
  *
@@ -361,6 +363,16 @@ export class PlatformBillingService {
       `);
       const created = String(inserted.rows[0]!.id);
 
+      // M7 — الترخيص يفتح ما تبيعه الباقة: حزم `feature.*` تُفتح مع الإصدار (والتجربة
+      // تجربةُ الحزمة فتفتحها أيضاً). فتحٌ لا إغلاق فيه — انظر `applyPlanFeaturePacks`.
+      const openedPacks = await applyPlanFeaturePacks(tx, this.audit, {
+        tenantId: input.tenantId,
+        planId: String(chosen.id),
+        planCode: String(chosen.code),
+        actorUserId: auth.userId,
+        actorLabel: await this.actorLabel(tx, auth.userId),
+      });
+
       await this.audit.recordInTx(tx, {
         tenantId: input.tenantId,
         actorUserId: auth.userId,
@@ -374,6 +386,7 @@ export class PlatformBillingService {
           months: input.months,
           trialDays: input.trialDays,
           status: trialing ? 'trialing' : 'active',
+          openedPacks,
         },
         meta: { scope: 'platform_console', tenantCode: String(buyer.code) },
       });
@@ -490,6 +503,16 @@ export class PlatformBillingService {
          WHERE id = ${subscriptionId}
       `);
 
+      // M7 — الباقة الجديدة تفتح حزمها فور التبديل. الفتح تراكمي: ما فتحته باقةٌ
+      // سابقة أو يدُ المشغّل لا يُسحب، والتخفيض قرارٌ يدويٌّ من لوحة المنصة كما كان.
+      const openedPacks = await applyPlanFeaturePacks(tx, this.audit, {
+        tenantId: String(subscription.tenant_id),
+        planId: String(target.id),
+        planCode: String(target.code),
+        actorUserId: auth.userId,
+        actorLabel: await this.actorLabel(tx, auth.userId),
+      });
+
       const net = platformParseAmount(proration.net);
       let invoiceId: string | null = null;
       let invoiceNumber: string | null = null;
@@ -558,7 +581,7 @@ export class PlatformBillingService {
           entity: 'tenant_subscription',
           entityId: subscriptionId,
           before: { planCode: String(subscription.plan_code), amount: String(subscription.amount) },
-          after: { planCode: String(target.code), amount: String(target.amount), periodEnd: newPeriodEnd },
+          after: { planCode: String(target.code), amount: String(target.amount), periodEnd: newPeriodEnd, openedPacks },
           meta: {
             scope: 'platform_console',
             reason: input.reason,
@@ -576,7 +599,7 @@ export class PlatformBillingService {
           entity: 'tenant_subscription',
           entityId: subscriptionId,
           before: { planCode: String(subscription.plan_code) },
-          after: { planCode: String(target.code), periodEnd: newPeriodEnd },
+          after: { planCode: String(target.code), periodEnd: newPeriodEnd, openedPacks },
           meta: { scope: 'platform_console', reason: input.reason, proration, invoiceId: null, invoiceKind: null },
         });
       }

@@ -853,3 +853,74 @@ invariant: **suggestions are never silently posted.**
   exit 0. Smoke check (AppModule boot from dist) passed. accounting-app 17/17 ✓,
   staff 16 files / 91 tests ✓ (+4), `openapi.json` regenerated (+31 lines, new
   route `/treasury/bank-statements/{id}/lines/{lineId}/post`).
+
+## 17. M7.1 — Vertical pack codes, plans, and opening what was bought — implemented 2026-10-17
+
+### 17.1 What shipped
+
+M6 is done except item 3 (standard costing, still gated on the owner's D-007 decision),
+so the roadmap's next unit is M7's first bullet: "Marketplace app codes + plans for the
+new packs (wholesale/manufacturing/food-factory/van-sales)". The machinery existed
+(`billing_plans` + `billing_plan_entitlements` from 0019/0068, `feature.*` flags,
+console flags tab, pricing page reading `GET /public/plans`) — but no pack was sellable
+end to end: two marketplace codes were missing, no plans were seeded, and nothing opened
+a pack when a licence went live (the operator flipped flags by hand after every
+activation).
+
+- **Four `feature.*` pack flags** (`wholesale` · `manufacturing` · `food_factory` ·
+  `van_sales`) in `packages/config` tenant-settings + Arabic/English labels in
+  `packages/contracts` `tenantFlagLabels` — they flow automatically into the console
+  flags tab, the plan-entitlement catalogue (`buildPlatformEntitlementKeys`) and the
+  public pricing page rows.
+- **Migration `0133_vertical_pack_plans`** (+ `down/`): seeds the four pack plans
+  (149/149/199/129 SAR monthly, prices grounded in the marketplace catalog) each with
+  its pack flag + `limits.max_users`. `ON CONFLICT DO NOTHING` everywhere: the seed
+  converges an empty database and never overrides what the operator edited. Down
+  removes the rows and **fails loudly** (FK) when a pack plan already has a licence.
+- **Two marketplace sector codes**: `wholesale` (license entry, screens `[]` — its
+  surfaces are the classic base) and `food_factory` (production + distribution in one
+  install, screens = the already-gated manufacturing/van-sales hrefs — overlap is
+  union-safe, nothing existing gets hidden).
+- **The missing link — `applyPlanFeaturePacks`** (`platform/admin/pack-entitlements.ts`):
+  called from every path where a licence becomes live — manual grant (incl. trials),
+  activation-request approval (both the `/platform` and `/billing` review routes), plan
+  change, and the Stripe webhook. Writes only `feature.* = true` rows
+  (additive — a cheaper plan never closes a pack the operator or a previous licence
+  opened; downgrades stay manual), skips writes that change nothing (keeps
+  `isDefault`/`updated_at` honest), and records one `tenant.flag` audit row per opened
+  pack (`meta.planCode`, `via: subscription`).
+
+### 17.2 Verification
+
+- `apps/api`: `vertical-packs.spec.ts` 6/6 ✓ (marketplace codes + no-new-gates proof;
+  seeded plans read through `GET /public/plans` with entitlement labels from the
+  registry; grant opens the pack incl. tenant-visible `/settings` + one audit row;
+  trial opens too and never closes; activation approval opens; plan change opens
+  additively). `migration-0133-reversibility.spec.ts` 4/4 ✓ (applied + idempotent +
+  operator edit survives re-apply; down → empty → up again; FK refuses down under a
+  live licence; 0132–0133 checksums).
+- Updated: `platform-tenants.spec.ts` flags list 4 → 8 (title re-worded);
+  `packages/config` tenant-settings spec covers the four keys.
+- Unchanged-but-green around the change: `platform-billing` 23, `public-plans` 9,
+  `settings` 7, `pos-checkout` 12, marketing 100, platform-admin 27.
+
+### 17.3 Notes and deferrals
+
+- Marketing pages for the verticals and the staging pilot are the remaining M7 items;
+  the pricing page now shows the four packs with zero marketing-code changes (it is
+  data-driven by design).
+- `feature.wholesale`/`feature.food_factory` gate nothing at the service level yet —
+  the flags are the licensing surface; service-level enforcement lands with the
+  vertical screens that need it (the `feature.pos` gate in `pos.service` is the
+  pattern).
+- A full-run `treasury-dayclose` ECONNRESET was a flake (embedded postgres): the spec
+  passes standalone and the full suite re-run is clean.
+
+### 17.4 Full-suite gate
+
+- **Full apps/api suite: 212 files / 1747 tests, exit 0** (was 210/1737;
+  +`vertical-packs` 6, +`migration-0133-reversibility` 4). Root `-r run lint` exit 0
+  and `-r run typecheck` exit 0 — 14 workspaces; smoke check passed. All other
+  workspaces green (contracts 239, database 54, config 16, marketing 100,
+  platform-admin 27, staff 91, accounting-app 17, rep-app 18…). `openapi.json`
+  regenerated — no diff (no route changes).

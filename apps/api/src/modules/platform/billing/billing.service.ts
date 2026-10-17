@@ -7,6 +7,8 @@ import { withPlatformAdminTx, withTenantTx, withTx, type DatabaseHandle } from '
 import { DATABASE_HANDLE } from '../../../database/database.tokens.js';
 import { getTenantContext } from '../context/tenant-context.js';
 import { getAuthContext } from '../../../request-context/request-context.js';
+import { AuditService } from '../../platform-services/audit/audit.service.js';
+import { applyPlanFeaturePacks } from '../admin/pack-entitlements.js';
 
 export type BillingPlan = { id: string; code: string; name: string; interval: 'month' | 'year'; amount: string; currency: string; stripePriceId: string | null };
 
@@ -33,7 +35,10 @@ type StripeClient = Stripe;
  */
 @Injectable()
 export class BillingService {
-  constructor(@Inject(DATABASE_HANDLE) private readonly database: DatabaseHandle) {}
+  constructor(
+    @Inject(DATABASE_HANDLE) private readonly database: DatabaseHandle,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * عميل Stripe — نقطة حقنٍ واحدة. `STRIPE_API_*` تسمح لبيئة الاختبار بتوجيه العميل إلى
@@ -150,6 +155,16 @@ export class BillingService {
         // `tenant_subscriptions_active_tenant_key` (0068) يمنع ترخيصين فعّالين لمنشأة.
         await tx.execute(sql`UPDATE tenant_subscriptions SET status = 'canceled', canceled_at = now(), canceled_reason = 'استُبدل بتفعيل يدوي', updated_at = now() WHERE tenant_id = ${request.tenant_id}::uuid AND status IN ('trialing', 'active', 'past_due', 'paused')`);
         await tx.execute(sql`INSERT INTO tenant_subscriptions (id, tenant_id, plan_id, status, provider, activated_at, current_period_start) VALUES (${newId()}::uuid, ${request.tenant_id}::uuid, ${request.plan_id}::uuid, 'active', 'manual', now(), now())`);
+        // M7 — التفعيل يفتح حزم الباقة فوراً (فتحٌ تراكمي مع سجلّ تدقيق لكل حزمة).
+        const planRows = await tx.execute(sql`SELECT code FROM billing_plans WHERE id = ${request.plan_id}::uuid LIMIT 1`);
+        const actorRows = await tx.execute(sql`SELECT full_name FROM users WHERE id = ${auth.userId}::uuid LIMIT 1`);
+        await applyPlanFeaturePacks(tx, this.audit, {
+          tenantId: String(request.tenant_id),
+          planId: String(request.plan_id),
+          planCode: String(planRows.rows[0]?.code ?? request.plan_id),
+          actorUserId: auth.userId,
+          actorLabel: String(actorRows.rows[0]?.full_name ?? 'مدير المنصة'),
+        });
       }
       return request;
     });
@@ -243,6 +258,16 @@ export class BillingService {
            AND id = ${target.id}::uuid
            AND status IN ('incomplete', 'pending', 'past_due')
       `);
+
+      // M7 — الدفع اكتمل فالرخصة حيّة: حزم الباقة تُفتح في الحدث نفسه، والفاعل النظام.
+      const planRows = await tx.execute(sql`SELECT code FROM billing_plans WHERE id = ${planId}::uuid LIMIT 1`);
+      await applyPlanFeaturePacks(tx, this.audit, {
+        tenantId,
+        planId,
+        planCode: String(planRows.rows[0]?.code ?? planId),
+        actorUserId: null,
+        actorLabel: 'النظام — Stripe',
+      });
 
       return { handled: true, subscriptionId: target.id };
     });

@@ -165,7 +165,18 @@ Each item: migration + service + specs + accounting-app screens, shipped indepen
 
 ## M7 — Product packaging & pilot
 
-- Marketplace app codes + plans for the new packs (wholesale/manufacturing/food-factory/van-sales).
+- ✅ **Marketplace app codes + plans for the new packs** — shipped 2026-10-17: the four
+  vertical packs (wholesale · manufacturing · food-factory · van-sales) are now sellable
+  end to end. Migration `0133` seeds the four pack plans (`billing_plans` +
+  entitlements, `ON CONFLICT DO NOTHING` — operator edits always win) so the pricing
+  page reads real offers; the two missing marketplace codes (`wholesale`,
+  `food_factory`) join the catalog (food-factory reuses the already-gated
+  manufacturing/van-sales screens, wholesale is a license entry — nothing existing gets
+  hidden); four `feature.*` flags (`wholesale/manufacturing/food_factory/van_sales`)
+  flow into the console flags tab and the plan entitlement catalogue; and **a live
+  licence now opens what it bought** — grant, activation-request approval, plan change
+  and the Stripe webhook all apply the plan's feature packs to the tenant
+  (additive-only, never closing, one `tenant.flag` audit row per opened pack).
 - Marketing site pages; platform-admin activation flow reuse; pilot tenants on staging with production-like
   data volumes; performance baseline for snapshot/replay (R-13).
 **Exit:** pilot tenants run the full rep day (load → sell offline → sync → close → settle) and the accounting

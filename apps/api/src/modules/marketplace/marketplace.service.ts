@@ -118,6 +118,36 @@ export const SECTOR_ADDON_APPS = [
     ] as const,
   },
   {
+    // M7 — حزم المنتج المتخصص الأربع. البيع المتجول والتصنيع موجودان أعلاه؛ هذان
+    // الرمزان الناقصان: الجملة (ترخيص الحزمة — شاشاتها شاشات النظام الأساسية فلا
+    // تُقفَل على أحد)، ومصنع الأغذية (إنتاج + توزيع معاً، وشاشاته شاشات التطبيقين
+    // الموجودين نفسها فلا يتقفل شيءٌ على من يملك أحدهما).
+    code: 'wholesale',
+    nameAr: 'الجملة والتوزيع',
+    nameEn: 'Wholesale & Distribution',
+    descriptionAr:
+      'حزمة تجار الجملة: فواتير العملاء وقوائم الأسعار المتعددة وحدود الائتمان والتقسيط، مع علم feature.wholesale الذي تفتحه الباقة.',
+    icon: '🏬',
+    version: '1.0.0',
+    monthlyPrice: '149.0000',
+    isCore: false,
+    category: 'sector' as const,
+    screens: [] as const,
+  },
+  {
+    code: 'food_factory',
+    nameAr: 'مصنع الأغذية',
+    nameEn: 'Food Factory',
+    descriptionAr:
+      'حزمة مصانع الأغذية والمخابز: أوامر الإنتاج وتواريخ الصلاحية مع توزيع المناديب في تثبيتٍ واحد.',
+    icon: '🏭',
+    version: '1.0.0',
+    monthlyPrice: '199.0000',
+    isCore: false,
+    category: 'sector' as const,
+    screens: ['/manufacturing/orders', '/inventory/production', '/van-sales'] as const,
+  },
+  {
     code: 'employee_app',
     nameAr: 'تطبيق الموظف الذاتي',
     nameEn: 'Employee Self-Service App',

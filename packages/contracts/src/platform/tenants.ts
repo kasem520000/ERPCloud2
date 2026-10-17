@@ -339,6 +339,28 @@ export const tenantFlagLabels: Record<string, { labelAr: string; labelEn: string
     labelEn: 'Specialised activities',
     descriptionAr: 'الأنشطة المتخصصة: بصريات، بحرية، مركبات.',
   },
+  // M7 — الحزم العمودية الأربع للمنتج المتخصص: باقة المشتري تفتح حزمته، وصفحة
+  // الأسعار تعرضها بهذه الأسماء لا بمفاتيحها.
+  'feature.wholesale': {
+    labelAr: 'الجملة والتوزيع',
+    labelEn: 'Wholesale & distribution',
+    descriptionAr: 'حزمة الجملة: فواتير العملاء وقوائم الأسعار وحدود الائتمان والتقسيط.',
+  },
+  'feature.manufacturing': {
+    labelAr: 'التصنيع والإنتاج',
+    labelEn: 'Manufacturing',
+    descriptionAr: 'حزمة التصنيع: أوامر الإنتاج وقوائم المواد وتكاليف المراحل.',
+  },
+  'feature.food_factory': {
+    labelAr: 'مصنع الأغذية',
+    labelEn: 'Food factory',
+    descriptionAr: 'حزمة مصنع الأغذية: الإنتاج وتواريخ الصلاحية وتوزيع المناديب.',
+  },
+  'feature.van_sales': {
+    labelAr: 'البيع المتجول',
+    labelEn: 'Van sales',
+    descriptionAr: 'حزمة البيع المتجول: سيارات التوزيع والمناديب والمطابقة الميدانية.',
+  },
 };
 
 // ------------------------------------------------------------------------- branding

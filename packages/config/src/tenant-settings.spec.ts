@@ -23,6 +23,12 @@ describe('tenant settings registry', () => {
     }
     expect(isTenantSettingKey('money.rounding_digits')).toBe(true);
     expect(isTenantSettingKey('feature.pos')).toBe(true);
+    // M7 — الحزم العمودية الأربع: مفاتيح معروفة تُقلب كبقية الرايات.
+    for (const packKey of ['feature.wholesale', 'feature.manufacturing', 'feature.food_factory', 'feature.van_sales']) {
+      expect(isTenantSettingKey(packKey), packKey).toBe(true);
+      expect(parseTenantSettingValue(packKey, true)).toBe(true);
+      expect(() => parseTenantSettingValue(packKey, 'نعم')).toThrow();
+    }
     expect(isTenantSettingKey('nope.not.a.key')).toBe(false);
   });
 

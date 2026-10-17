@@ -14,6 +14,9 @@ import { baselineRoles } from '@erp/config';
 import { DATABASE_HANDLE } from '../../../database/database.tokens.js';
 import { getAuthContext } from '../../../request-context/request-context.js';
 import { PasswordService } from '../auth/password.service.js';
+import { AuditService } from '../../platform-services/audit/audit.service.js';
+
+import { applyPlanFeaturePacks } from './pack-entitlements.js';
 
 /**
  * Platform (SaaS) control plane — the part the desktop product never had.
@@ -92,6 +95,7 @@ export class PlatformAdminService {
   constructor(
     @Inject(DATABASE_HANDLE) private readonly database: DatabaseHandle,
     private readonly passwords: PasswordService,
+    private readonly audit: AuditService,
   ) {}
 
   // ----------------------------------------------------------------- overview
@@ -421,6 +425,17 @@ export class PlatformAdminService {
                   now() + interval '12 months')
         `);
         await tx.execute(sql`UPDATE tenants SET status = 'active', updated_at = now() WHERE id = ${String(request.tenant_id)}`);
+        // M7 — الموافقة على الطلب تفتح حزم الباقة فوراً: العميل دخل من نافذة الاشتراك
+        // ليشتغل، لا لينتظر تقليب المشغّل للرايات بيده. فتحٌ تراكمي مع سجلّ تدقيق لكل حزمة.
+        const planRows = await tx.execute(sql`SELECT code FROM billing_plans WHERE id = ${String(request.plan_id)} LIMIT 1`);
+        const actorRows = await tx.execute(sql`SELECT full_name FROM users WHERE id = ${auth.userId} LIMIT 1`);
+        await applyPlanFeaturePacks(tx, this.audit, {
+          tenantId: String(request.tenant_id),
+          planId: String(request.plan_id),
+          planCode: String(planRows.rows[0]?.code ?? request.plan_id),
+          actorUserId: auth.userId,
+          actorLabel: String(actorRows.rows[0]?.full_name ?? 'مدير المنصة'),
+        });
       }
 
       return request;

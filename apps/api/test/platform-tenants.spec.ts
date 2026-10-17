@@ -334,16 +334,21 @@ describe('platform tenant card (P-C2)', () => {
 
   // ------------------------------------------------------------------ 4. the flags
 
-  it('lists the four feature packs and flips one, on the record', async () => {
+  it('lists the feature packs and flips one, on the record', async () => {
     const before = await api(ctx.server, 'get', `${CARD()}/flags`, { token: owner.token });
     expect(before.status).toBe(200);
     const flagsBefore = before.body.data as TenantFlagsResponse;
     expect(flagsBefore.tenantId).toBe(customer.tenantId);
+    // الأربع الأصلية ثم حزم M7 الأربع — ترتيب السجلّ نفسه.
     expect(flagsBefore.flags.map((flag) => flag.key)).toEqual([
       'feature.pos',
       'feature.projects',
       'feature.hrm',
       'feature.niche',
+      'feature.wholesale',
+      'feature.manufacturing',
+      'feature.food_factory',
+      'feature.van_sales',
     ]);
     expect(flagsBefore.flags.every((flag) => flag.enabled === false && flag.isDefault)).toBe(true);
     expect(flagsBefore.flags[0]?.labelAr).toBe(tenantFlagLabels['feature.pos']?.labelAr);

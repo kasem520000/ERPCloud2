@@ -147,6 +147,13 @@ export const tenantSettingsRegistry: readonly TenantSettingDefinition[] = [
   define('feature.projects', 'projects', 'Projects & contracting pack.', z.boolean(), false),
   define('feature.hrm', 'hrm', 'Human resources & payroll pack.', z.boolean(), false),
   define('feature.niche', 'niche', 'Niche verticals pack (optical, marine, vehicles).', z.boolean(), false),
+  // M7 — الحزم العمودية للمنتج المتخصص (خارطة الطريق: جملة/تصنيع/مصنع أغذية/بيع
+  // متجول). الباقة تفتحها كسطر في حقوقها، والمشغّل يقلبها من لوحة المنصة — وهي
+  // المفاتيح التي يقرؤها مكوّن الخدمة لاحقاً كما يقرأ `feature.pos` بوابة الكاشير.
+  define('feature.wholesale', 'wholesale', 'Wholesale & distribution pack.', z.boolean(), false),
+  define('feature.manufacturing', 'manufacturing', 'Manufacturing & production pack.', z.boolean(), false),
+  define('feature.food_factory', 'food_factory', 'Food-factory pack (production, expiry, distribution).', z.boolean(), false),
+  define('feature.van_sales', 'van_sales', 'Van-sales & field distribution pack.', z.boolean(), false),
 ] as const;
 
 const registryByKey = new Map(tenantSettingsRegistry.map((entry) => [entry.key, entry]));
