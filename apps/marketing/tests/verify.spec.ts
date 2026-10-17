@@ -202,15 +202,29 @@ describe('marketing /trust — كل بندٍ ومعه مصدره (P-M8)', () => 
 });
 
 describe('marketing /industries — القطاعات من شجرة الموظّفين (P-M8)', () => {
-  it('خمسة قطاعات بأسماء الخطة، والمسار يُبنى من الـslug نفسه', () => {
-    expect(industrySlugs).toEqual(['tailoring', 'optics', 'marina', 'contracting', 'salla']);
+  it('تسعة قطاعات بأسماء الخطة، والمسار يُبنى من الـslug نفسه', () => {
+    expect(industrySlugs).toEqual([
+      'tailoring',
+      'optics',
+      'marina',
+      'contracting',
+      'salla',
+      'wholesale',
+      'manufacturing',
+      'food-factory',
+      'van-sales',
+    ]);
     expect(industryPath('marina')).toBe('/industries/marina');
     expect(industryBySlug('contracting')?.labelAr).toBe('المقاولات');
+    expect(industryBySlug('van-sales')?.labelAr).toBe('البيع المتجول');
     expect(industryBySlug('nope')).toBeUndefined();
   });
 
-  it('كل سطرٍ في كل قطاع يقابل تسميةً ومفتاحاً ثابتاً في `apps/staff/lib/navigation.ts` (AUD-18 / F-12)', () => {
+  it('كل سطرٍ في كل قطاع يقابل تسميةً ومفتاحاً ثابتاً في شجرة شاشات العمل (AUD-18 / F-12)', () => {
     const lines = readFileSync(staffNavigation, 'utf8').split('\n');
+    // M7 — شاشات المصنع والمناديب يسكبها `app-shell.tsx` عند تفعيل إضافة السوق،
+    // فمصدرُها هناك. المصدرُ يسمّي الملف، والتحقق يفتح الملف المسمّى.
+    const shellLines = readFileSync(join(repoRoot, 'apps', 'staff', 'components', 'app-shell.tsx'), 'utf8').split('\n');
     const mismatched: string[] = [];
 
     for (const industry of industries) {
@@ -219,26 +233,32 @@ describe('marketing /industries — القطاعات من شجرة الموظّ�
         { label: industry.module.label, source: industry.module.source },
       ];
       for (const screen of screens) {
-        const match = /^apps\/staff\/lib\/navigation\.ts#([a-z0-9-]+)$/.exec(screen.source);
+        // ملحق شجرة الشاشات بامتداد tsx — خلاف ملف navigation.ts
+        const match = /^apps\/staff\/(lib\/navigation\.ts|components\/app-shell\.tsx)#([a-z0-9-]+)$/.exec(screen.source);
         if (!match) {
           mismatched.push(`${industry.slug}/${screen.label}: مصدرٌ بلا معرّف ثابت (${screen.source})`);
           continue;
         }
-        const key = match[1]!;
-        const anchorLine = lines.findIndex(
-          (line) => line.includes(`'${key}'`) || line.includes(`"${key}"`),
-        );
-        if (anchorLine === -1) {
-          mismatched.push(`${industry.slug}/${screen.label}: المعرّف #${key} غير موجود في navigation.ts`);
+        const [, file, key] = match;
+        const sourceLines = file === 'lib/navigation.ts' ? lines : shellLines;
+        // المعرّف قد يتكرّر (خريطة إضافات السوق تحمل المفتاح نفسه قبل التعريف) —
+        // يكفي أن تظهر التسمية والمسار عند **بعض** مواضعه، لا عند أولها.
+        const windows: string[] = [];
+        sourceLines.forEach((line, index) => {
+          if (line.includes(`'${key}'`) || line.includes(`"${key}"`)) {
+            windows.push(sourceLines.slice(Math.max(0, index - 2), index + 8).join('\n'));
+          }
+        });
+        if (windows.length === 0) {
+          mismatched.push(`${industry.slug}/${screen.label}: المعرّف #${key} غير موجود في ${file}`);
           continue;
         }
-        // نافذة العقدة حول المعرّف الثابت تضمّ التسمية العربية والـhref (إن كانت شاشةً).
-        const window = lines.slice(Math.max(0, anchorLine - 2), anchorLine + 8).join('\n');
-        if (!window.includes(screen.label)) {
+        if (!windows.some((window) => window.includes(screen.label))) {
           mismatched.push(`${industry.slug}/${screen.label}: التسمية غائبة عند #${key}`);
         }
-        if (screen.href && !window.includes(screen.href)) {
-          mismatched.push(`${industry.slug}/${screen.label}: المسار ${screen.href} غائب عند #${key}`);
+        const href = screen.href;
+        if (href && !windows.some((window) => window.includes(href))) {
+          mismatched.push(`${industry.slug}/${screen.label}: المسار ${href} غائب عند #${key}`);
         }
       }
     }

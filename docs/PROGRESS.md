@@ -924,3 +924,51 @@ activation).
   workspaces green (contracts 239, database 54, config 16, marketing 100,
   platform-admin 27, staff 91, accounting-app 17, rep-app 18…). `openapi.json`
   regenerated — no diff (no route changes).
+
+## 18. M7.2 — Marketing industry pages for the four packs — implemented 2026-10-17
+
+### 18.1 What shipped
+
+- **Four sector entries in `apps/marketing/lib/industries.ts`** (after the existing
+  five): `wholesale` (الجملة والتوزيع — 5 screens from the sales module), 
+  `manufacturing` (التصنيع — 3 screens incl. BOMs and production orders),
+  `food-factory` (مصنع الأغذية — 4 screens: production, expiry, lots, distribution
+  invoicing), `van-sales` (البيع المتجول — 5 screens: customer tiers/price locks,
+  daily production, rep loads, distribution invoicing, bonus radar + owner
+  dashboard). Each follows the P-M8 content rules: literal Arabic labels copied from
+  the staff screen tree, ≥3 pain-point picture lines, ≥3 loop lines ending in the
+  e-invoice/owner-profit close, no numbers/promises/testimonials.
+- **Sources name the file that actually defines the screen.** Sales and
+  manufacturing screens cite `apps/staff/lib/navigation.ts#<key>`; van-sales module
+  screens cite `apps/staff/components/app-shell.tsx#<key>` because that module is
+  injected by the app shell at runtime (it is not in `navigation.ts` — food-factory
+  and van-sales share those screens; the entries deliberately reference the same
+  keys).
+- **Zero plumbing edits**: sitemap, `/industries` index page and
+  `/industries/[slug]/page.tsx` are all data-driven off `industrySlugs` — the four
+  new pages flow through automatically. Only a stale "القطاعات الخمسة" comment was
+  updated on the index page.
+- **`verify.spec.ts` extended, contract intact**: the slug list is pinned to the nine
+  sectors in order; the anchor test now accepts either source file
+  (`lib/navigation.ts` or `components/app-shell.tsx`), opens the named file, and —
+  because `van-sales` also appears in the app-shell's `ADDON_MODULE_CODE_BY_NAV_KEY`
+  map before the real module definition — checks that the label (+ href for screens)
+  appears at *some* occurrence of the key, not the first one. The no-numbers/
+  no-promises test covers all nine sectors.
+
+### 18.2 Verification
+
+- Marketing suite: 12 files / **100 tests green** (verify.spec 14/14 incl. the
+  extended anchor test). Full gate: typegen → `typecheck` → `lint` → `build` →
+  smoke → `pnpm -r run test` → `openapi:export` all exit 0; **apps/api 212 files /
+  1747 tests** unchanged and green; `openapi.json` no diff (no route changes).
+
+### 18.3 Notes and deferrals
+
+- Remaining M7: platform-admin activation-flow reuse check, pilot tenants on staging
+  (needs a real deployment — the sandbox can only document the runbook), and the
+  R-13 performance baseline for snapshot/replay (a scoped load/benchmark test is
+  feasible locally).
+- Gate footguns re-confirmed: `pnpm typecheck -r` passes a stray `-r` to tsc (run
+  `pnpm typecheck`); root scripts shelling out to bare `pnpm` need `corepack enable`
+  first.

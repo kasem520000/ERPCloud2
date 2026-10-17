@@ -177,7 +177,15 @@ Each item: migration + service + specs + accounting-app screens, shipped indepen
   licence now opens what it bought** — grant, activation-request approval, plan change
   and the Stripe webhook all apply the plan's feature packs to the tenant
   (additive-only, never closing, one `tenant.flag` audit row per opened pack).
-- Marketing site pages; platform-admin activation flow reuse; pilot tenants on staging with production-like
+- ✅ **Marketing industry pages for the packs** — shipped 2026-10-17: four sector landing
+  pages under `/industries` (الجملة والتوزيع · التصنيع · مصنع الأغذية · البيع المتجول),
+  same P-M8 pattern as the first five sectors — every line is a literal label + stable
+  key from the staff screen tree (`navigation.ts` for sales/manufacturing screens;
+  `app-shell.tsx` for the van-sales module it injects), no numbers, promises, or
+  testimonials, and `verify.spec.ts` proves each line against the named source file.
+  Sitemap, `/industries` index and the `[slug]` route pick the new pages up from
+  `industrySlugs` with zero further edits.
+- Platform-admin activation flow reuse; pilot tenants on staging with production-like
   data volumes; performance baseline for snapshot/replay (R-13).
 **Exit:** pilot tenants run the full rep day (load → sell offline → sync → close → settle) and the accounting
 close (period lock, statements, ZATCA filing) with zero manual ledger repairs.
